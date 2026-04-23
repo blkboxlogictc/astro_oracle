@@ -4,6 +4,11 @@
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
+## Artifacts
+
+- **AstroOracle** (`artifacts/astrooracle`) — Cosmic AI chat app at `/`. Streams Claude responses via `/api/chat` with Science/Mystic mode toggle. Three.js starfield (with 2D canvas fallback when WebGL is unavailable).
+- **API Server** (`artifacts/api-server`) — Express server. Provides `POST /api/chat` (SSE-streamed Anthropic Claude responses) using `@workspace/integrations-anthropic-ai`.
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces

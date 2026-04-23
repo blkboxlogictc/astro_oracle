@@ -1,0 +1,59 @@
+Build a full-stack AI-powered cosmic knowledge chat app called "AstroOracle" using React + Vite on the frontend and Netlify/Vercel-compatible serverless functions on the backend.
+Tech Stack:
+
+React + Vite
+Tailwind CSS
+Framer Motion for animations
+Three.js for a animated star field background
+Anthropic Claude API for AI responses (use model claude-sonnet-4-20250514)
+API key will be stored in environment variables as ANTHROPIC_API_KEY
+
+Visual Design:
+
+Full screen deep space background: #0a0a0f
+Animated Three.js star field — thousands of slowly drifting white dots at varying depths giving a parallax 3D feel
+Nebula purple accent color: #6b21a8
+Cosmic blue: #1e40af
+Gold accent for mystic elements: #f59e0b
+Star white text: #f0f4ff
+Mix Cormorant Garamond (Google Font) for headings and Inter for body text
+Glassmorphism panels for the chat interface — semi-transparent dark panels with a subtle purple border glow
+
+Header:
+
+Centered logo text "AstroOracle" in Cormorant Garamond, large, with a subtle gold glow
+Tagline underneath: "Where science meets the stars"
+A mode toggle switch in the top right: 🔭 Science vs ✨ Mystic — switching modes changes the accent color (blue for Science, gold for Mystic) and updates the AI system prompt
+
+Chat Interface:
+
+Centered chat window, max width 800px, with glassmorphism styling
+Chat messages animate in with a fade + slight upward slide using Framer Motion
+User messages aligned right, styled with a subtle blue glow
+AI messages aligned left, styled with a subtle purple glow and a small ✦ AstroOracle label above them
+While the AI is responding, show a pulsing animated constellation dot pattern as the loading indicator (not a spinner)
+Input bar at the bottom with a glowing border on focus, placeholder text: "Ask the cosmos anything..."
+Send button with a star/sparkle icon
+
+AI Behavior:
+
+In Science Mode the system prompt should be: "You are AstroOracle, an expert AI on astronomy, astrophysics, cosmology, and the science of constellations. You blend deep scientific accuracy with accessible, wonder-filled explanations. You make the cosmos feel alive and fascinating. Always be precise but never dry."
+In Mystic Mode the system prompt should be: "You are AstroOracle, a mystical cosmic guide with deep knowledge of astrology, zodiac signs, constellation mythology, ancient sky lore, cosmic spirituality, and pseudo-scientific cosmic traditions. Speak with warmth, mystery, and wisdom. Make the user feel connected to the universe."
+Stream the AI responses token by token so text appears live as it generates
+Maintain full conversation history in state so the AI remembers context
+
+Suggested Questions:
+
+Below the chat input show 4 clickable suggestion chips that auto-populate the input. In Science Mode: "What is dark matter?", "Explain black holes simply", "What is the largest constellation?", "How was the universe formed?". In Mystic Mode swap to: "What does my Scorpio rising mean?", "Tell me about Orion's mythology", "How do moon phases affect us?", "What is the oldest constellation?"
+Chips should have a glowing pill style and disappear once the first message is sent
+
+Responsive Design:
+
+Fully mobile responsive
+On mobile the chat takes full screen width with appropriate padding
+
+Environment:
+
+Store the Anthropic API key as an environment variable ANTHROPIC_API_KEY
+The API call should be made from a serverless backend function (not exposed on the frontend)
+Set up a /api/chat endpoint that accepts { messages, mode } and returns a streamed response
