@@ -1,57 +1,7 @@
-@import "tailwindcss";
 @import "tw-animate-css";
-@plugin "@tailwindcss/typography";
-
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-card-border: hsl(var(--card-border));
-
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-popover-border: hsl(var(--popover-border));
-
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-primary-border: var(--primary-border);
-
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-secondary-border: var(--secondary-border);
-
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-muted-border: var(--muted-border);
-
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-accent-border: var(--accent-border);
-
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-destructive-border: var(--destructive-border);
-
-  --color-sidebar: hsl(var(--sidebar));
-  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-  --color-sidebar-border: hsl(var(--sidebar-border));
-
-  --font-sans: var(--app-font-sans);
-  --font-serif: var(--app-font-serif);
-  --font-mono: var(--app-font-mono);
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   /* HSL Colors based on the requirements */
@@ -100,14 +50,14 @@
   --app-font-mono: monospace;
   --radius: 0.75rem;
 
-  --opaque-button-border-intensity: -8;
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --sidebar-primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --sidebar-accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  /* Border colors with compatible syntax */
+  --primary-border: hsl(273 67% 31%);
+  --secondary-border: hsl(226 71% 32%);
+  --muted-border: hsl(240 20% 4%);
+  --accent-border: hsl(38 92% 42%);
+  --destructive-border: hsl(0 62.8% 22.6%);
+  --sidebar-primary-border: hsl(273 67% 31%);
+  --sidebar-accent-border: hsl(38 92% 42%);
 }
 
 .dark {
@@ -124,4 +74,43 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif;
   }
+}
+
+/* ── Shooting star animation ──────────────────────────────────────────────── */
+
+@keyframes shoot {
+  0%, 87%, 100% {
+    opacity: 0;
+    transform: translateX(0) scaleX(0.01);
+  }
+  88% {
+    opacity: 0;
+    transform: translateX(0) scaleX(0.01);
+  }
+  91% {
+    opacity: 0.95;
+    transform: translateX(0) scaleX(1);
+  }
+  98% {
+    opacity: 0;
+    transform: translateX(320px) scaleX(1);
+  }
+}
+
+.shooting-star {
+  position: relative;
+  width: 110px;
+  height: 1.5px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(200, 220, 255, 0.65) 50%,
+    transparent 100%
+  );
+  border-radius: 9999px;
+  transform-origin: left center;
+  box-shadow:
+    0 0 4px rgba(255, 255, 255, 0.5),
+    0 0 10px rgba(180, 200, 255, 0.25);
+  animation: shoot linear infinite;
 }

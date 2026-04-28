@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "WebFetch(domain:codeberg.org)",
+      "Bash(node -e ' *)",
+      "PowerShell($pkg = Get-Content \"c:\\\\Web Service Projects\\\\1_My Projects\\\\AstroOracle\\\\Cosmic-Knowledge-AI\\\\node_modules\\\\langchain\\\\package.json\" -Raw | ConvertFrom-Json; \\($pkg.exports | Get-Member -MemberType NoteProperty\\).Name | Select-String \"agent\")",
+      "PowerShell(Start-Sleep -Seconds 3; \\(Invoke-WebRequest -Uri \"http://localhost:5000\" -UseBasicParsing -ErrorAction SilentlyContinue\\).StatusCode)",
+      "PowerShell(& node \"c:\\\\Web Service Projects\\\\1_My Projects\\\\AstroOracle\\\\Cosmic-Knowledge-AI\\\\artifacts\\\\api-server\\\\build.mjs\" 2>&1)",
+      "Bash(npm install *)",
+      "Bash(cp .env.example .env.stage1-test)",
+      "Bash(cp ../artifacts/api-server/.env .env)",
+      "Bash(git config *)",
+      "Bash(git remote *)"
+    ]
+  }
+}

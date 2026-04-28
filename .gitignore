@@ -27,6 +27,15 @@ node_modules
 !.vscode/launch.json
 !.vscode/extensions.json
 
+# Environment files — never commit secrets
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Document_Script — generated output lives in Supabase, not git
+Document_Script/output/
+
 # misc
 /.sass-cache
 /connect.lock

@@ -1,0 +1,25 @@
+{
+  "name": "astro-oracle-kb-builder",
+  "version": "1.0.0",
+  "description": "Knowledge base builder for AstroOracle — pulls from Wikipedia and HYG star database",
+  "type": "module",
+  "scripts": {
+    "build": "node build-knowledge-base.js",
+    "build-stars": "node build-stars-only.js",
+    "load": "node load-to-supabase.js",
+    "build-and-load": "node build-knowledge-base.js && node load-to-supabase.js",
+    "build-stars-and-load": "node build-stars-only.js && node load-to-supabase.js",
+    "build-mystic": "node build-mystic-knowledge.js",
+    "build-mystic-and-load": "node build-mystic-knowledge.js && node load-to-supabase.js",
+    "build-quantum": "node build-quantum-knowledge.js",
+    "build-quantum-and-load": "node build-quantum-knowledge.js && node load-to-supabase.js",
+    "build-stellar-extreme": "node build-stellar-extreme-knowledge.js",
+    "build-stellar-extreme-and-load": "node build-stellar-extreme-knowledge.js && node load-to-supabase.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "@supabase/supabase-js": "^2.43.0",
+    "dotenv": "^16.4.5",
+    "openai": "^4.52.0"
+  }
+}
