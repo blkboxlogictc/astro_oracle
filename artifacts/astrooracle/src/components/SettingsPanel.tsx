@@ -4,7 +4,7 @@ import {
   Settings, Volume2, VolumeX, Bell, BellOff, LogOut, User,
   Star, ChevronDown, Sparkles, Shield, FileText, Edit3, Crown,
 } from 'lucide-react';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
 import { apiCall } from '@/lib/api';
 import { AuthModal } from './AuthModal';
@@ -139,10 +139,10 @@ export function SettingsPanel() {
     // Enable — request OneSignal permission
     setPushLoading(true);
     try {
-      const deferred = (window as any).OneSignalDeferred as ((fn: (os: any) => void) => void) | undefined;
+      const deferred = (window as any).OneSignalDeferred as any[] | undefined;
       if (!deferred) return;
       await new Promise<void>((resolve, reject) => {
-        deferred(async (OneSignal: any) => {
+        deferred.push(async (OneSignal: any) => {
           try {
             await OneSignal.Notifications.requestPermission();
             const playerId: string | undefined = OneSignal.User?.PushSubscription?.id;
@@ -181,6 +181,8 @@ export function SettingsPanel() {
           side="left"
           className="w-[300px] sm:w-[340px] bg-[#0a0a1a] border-r border-purple-900/40 p-0 flex flex-col overflow-hidden"
         >
+          <SheetTitle className="sr-only">Settings</SheetTitle>
+
           {/* Header */}
           <div className="px-5 pt-6 pb-4 border-b border-white/8 shrink-0">
             <div className="flex items-center gap-2 mb-1">

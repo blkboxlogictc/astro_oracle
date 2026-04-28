@@ -5,7 +5,7 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2024-04-10',
 });
 
-const PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID;
+const PREMIUM_PRICE_ID = process.env.STRIPE_PRICE_MONTHLY;
 
 export async function createCheckoutSession(userId, email, successUrl, cancelUrl) {
   // Re-use existing Stripe customer if one exists

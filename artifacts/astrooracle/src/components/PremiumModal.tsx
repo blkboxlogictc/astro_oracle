@@ -44,7 +44,7 @@ export function PremiumModal({ open, onClose, reason }: Props) {
           ].map((f) => <p key={f} className="text-sm text-white/80">{f}</p>)}
         </div>
         <div className="text-center my-2">
-          <span className="text-3xl font-bold text-amber-300">$9.99</span>
+          <span className="text-3xl font-bold text-amber-300">$7.99</span>
           <span className="text-white/50 text-sm">/month</span>
         </div>
         {error && <p className="text-red-400 text-xs text-center">{error}</p>}

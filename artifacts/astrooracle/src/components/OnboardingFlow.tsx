@@ -7,11 +7,23 @@ import { useAuth } from '@/hooks/useAuth';
 interface Props { open: boolean; onComplete: () => void; allowClose?: boolean; }
 interface GeoResult { display_name: string; lat: string; lon: string; }
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: CURRENT_YEAR - 1923 }, (_, i) => CURRENT_YEAR - i);
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+
 export function OnboardingFlow({ open, onComplete, allowClose = false }: Props) {
   const { refreshProfile } = useAuth();
   const [step, setStep] = useState(0);
-  const [birthDate, setBirthDate] = useState('');
-  const [birthTime, setBirthTime] = useState('');
+  const [birthMonth, setBirthMonth] = useState('');
+  const [birthDay, setBirthDay] = useState('');
+  const [birthYear, setBirthYear] = useState('');
+  const [birthHour, setBirthHour] = useState('');
+  const [birthMinute, setBirthMinute] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
   const [geoResults, setGeoResults] = useState<GeoResult[]>([]);
   const [selectedGeo, setSelectedGeo] = useState<GeoResult | null>(null);
@@ -19,6 +31,13 @@ export function OnboardingFlow({ open, onComplete, allowClose = false }: Props) 
   const [geocoding, setGeocoding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const birthDate = birthYear && birthMonth && birthDay
+    ? `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`
+    : '';
+  const birthTime = birthHour !== '' && birthMinute !== ''
+    ? `${birthHour.padStart(2, '0')}:${birthMinute.padStart(2, '0')}`
+    : '';
 
   const searchLocation = async () => {
     if (!locationQuery.trim()) return;
@@ -56,8 +75,10 @@ export function OnboardingFlow({ open, onComplete, allowClose = false }: Props) 
     } finally { setSubmitting(false); }
   };
 
+  const selectClass = "bg-white/5 border border-white/10 rounded-xl px-2 py-3 text-sm text-white focus:outline-none focus:border-purple-500/50 [color-scheme:dark] w-full text-center";
+
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o && allowClose) onComplete(); }}>
       <DialogContent
         className="bg-[#0d0d1f] border border-purple-800/30 text-white max-w-sm rounded-2xl shadow-[0_0_60px_rgba(107,33,168,0.3)]"
         onInteractOutside={(e) => { if (!allowClose) e.preventDefault(); }}
@@ -76,13 +97,42 @@ export function OnboardingFlow({ open, onComplete, allowClose = false }: Props) 
             <motion.div key="step0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3 mt-2">
               <div>
                 <label className="text-xs text-white/50 mb-1.5 block">Birth Date *</label>
-                <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500/50 [color-scheme:dark]" />
+                <div className="grid grid-cols-3 gap-2">
+                  <select value={birthMonth} onChange={(e) => setBirthMonth(e.target.value)} className={selectClass}>
+                    <option value="" disabled>Month</option>
+                    {MONTHS.map((m, i) => (
+                      <option key={m} value={String(i + 1)}>{m}</option>
+                    ))}
+                  </select>
+                  <select value={birthDay} onChange={(e) => setBirthDay(e.target.value)} className={selectClass}>
+                    <option value="" disabled>Day</option>
+                    {DAYS.map((d) => (
+                      <option key={d} value={String(d)}>{d}</option>
+                    ))}
+                  </select>
+                  <select value={birthYear} onChange={(e) => setBirthYear(e.target.value)} className={selectClass}>
+                    <option value="" disabled>Year</option>
+                    {YEARS.map((y) => (
+                      <option key={y} value={String(y)}>{y}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="text-xs text-white/50 mb-1.5 block">Birth Time <span className="text-white/30">(optional — improves accuracy)</span></label>
-                <input type="time" value={birthTime} onChange={(e) => setBirthTime(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500/50 [color-scheme:dark]" />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" min={0} max={23} placeholder="HH"
+                    value={birthHour} onChange={(e) => setBirthHour(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50 [color-scheme:dark] text-center"
+                  />
+                  <span className="text-white/50 text-lg font-bold shrink-0">:</span>
+                  <input
+                    type="number" min={0} max={59} placeholder="MM"
+                    value={birthMinute} onChange={(e) => setBirthMinute(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50 [color-scheme:dark] text-center"
+                  />
+                </div>
               </div>
               {error && <p className="text-red-400 text-xs text-center">{error}</p>}
               <motion.button whileTap={{ scale: 0.97 }}

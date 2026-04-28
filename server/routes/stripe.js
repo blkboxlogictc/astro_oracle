@@ -166,7 +166,7 @@ async function processWebhookEvent(event) {
 }
 
 async function upsertSubscription(userId, subscription, stripeCustomerId) {
-  const plan = subscription.items?.data?.[0]?.price?.id === process.env.STRIPE_PREMIUM_PRICE_ID
+  const plan = subscription.items?.data?.[0]?.price?.id === process.env.STRIPE_PRICE_MONTHLY
     ? 'premium'
     : 'free';
 

@@ -24,11 +24,15 @@
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       OneSignalDeferred.push(async function(OneSignal) {
-        await OneSignal.init({
-          appId: "ab15d88d-97f8-48fe-bfdf-01ea215a11cc",
-          notifyButton: { enable: false },
-          allowLocalhostAsSecureOrigin: true,
-        });
+        try {
+          await OneSignal.init({
+            appId: "ab15d88d-97f8-48fe-bfdf-01ea215a11cc",
+            notifyButton: { enable: false },
+            allowLocalhostAsSecureOrigin: true,
+          });
+        } catch (e) {
+          console.debug('[OneSignal] init skipped:', e.message);
+        }
       });
     </script>
   </head>
