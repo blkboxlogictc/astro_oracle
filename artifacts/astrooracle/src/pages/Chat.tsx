@@ -236,35 +236,40 @@ export default function Chat() {
 
       <main className="relative z-10 flex flex-col h-[100dvh] max-w-4xl mx-auto px-4 py-6 md:py-8">
         {/* Header */}
-        <header className="flex flex-col items-center justify-center mb-8 shrink-0 relative">
-          {/* Left controls: ambient + sky tonight */}
-          <div className="absolute left-0 top-0 flex items-center gap-2">
-            <AmbientPlayer />
-            <SkyTonight />
+        <header className="flex flex-col items-center mb-4 md:mb-8 shrink-0 relative">
+          {/* Controls — in-flow row above title on mobile, absolute overlay on desktop */}
+          <div className="w-full flex items-center justify-between mb-3 md:mb-0 md:absolute md:inset-x-0 md:top-0">
+            <div className="flex items-center gap-2">
+              <AmbientPlayer />
+              <SkyTonight />
+            </div>
+            <div className="flex items-center gap-2">
+              <UserMenu />
+              <motion.button
+                onClick={() => setMode(isScience ? "mystic" : "science")}
+                whileTap={{ scale: 0.93 }}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card/40 border backdrop-blur-md text-sm font-medium transition-all duration-500 hover:bg-card/60",
+                  isScience
+                    ? "border-blue-500/25 shadow-[0_0_14px_rgba(59,130,246,0.18)]"
+                    : "border-amber-500/25 shadow-[0_0_14px_rgba(245,158,11,0.18)]"
+                )}
+              >
+                <span className={cn("transition-opacity duration-300", isScience ? "opacity-100" : "opacity-40")}>
+                  🔭<span className="hidden sm:inline"> Science</span>
+                </span>
+                <span className="w-px h-4 bg-white/20" />
+                <span className={cn("transition-opacity duration-300", !isScience ? "opacity-100" : "opacity-40")}>
+                  ✨<span className="hidden sm:inline"> Mystic</span>
+                </span>
+              </motion.button>
+            </div>
           </div>
 
-          {/* Right controls: cosmic profile + mode toggle */}
-          <div className="absolute right-0 top-0 flex items-center gap-2">
-            <UserMenu />
-            <motion.button
-              onClick={() => setMode(isScience ? "mystic" : "science")}
-              whileTap={{ scale: 0.93 }}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-full bg-card/40 border backdrop-blur-md text-sm font-medium transition-all duration-500 hover:bg-card/60",
-                isScience
-                  ? "border-blue-500/25 shadow-[0_0_14px_rgba(59,130,246,0.18)]"
-                  : "border-amber-500/25 shadow-[0_0_14px_rgba(245,158,11,0.18)]"
-              )}
-            >
-              <span className={cn("transition-opacity duration-300", isScience ? "opacity-100" : "opacity-40")}>🔭 Science</span>
-              <span className="w-px h-4 bg-white/20" />
-              <span className={cn("transition-opacity duration-300", !isScience ? "opacity-100" : "opacity-40")}>✨ Mystic</span>
-            </motion.button>
-          </div>
-          <h1 className="text-4xl md:text-5xl font-serif font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70 drop-shadow-[0_0_15px_rgba(245,158,11,0.3)] mb-2">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70 drop-shadow-[0_0_15px_rgba(245,158,11,0.3)] mb-1 md:mb-2">
             AstroOracle
           </h1>
-          <p className="text-white/60 text-sm md:text-base font-medium tracking-wide uppercase">
+          <p className="text-white/60 text-xs sm:text-sm md:text-base font-medium tracking-wide uppercase">
             Where science meets the stars
           </p>
         </header>
