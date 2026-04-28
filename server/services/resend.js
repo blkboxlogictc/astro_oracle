@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = 'AstroOracle <notifications@astrooracle.space>';
+const FROM = `AstroOracle <${process.env.RESEND_FROM_EMAIL ?? 'cosmic@astrooracle.space'}>`;
 
 export async function sendEmail({ to, subject, html }) {
   if (!process.env.RESEND_API_KEY) {
