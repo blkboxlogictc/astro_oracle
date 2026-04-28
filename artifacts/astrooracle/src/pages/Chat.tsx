@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Starfield } from "@/components/Starfield";
-import { AmbientPlayer } from "@/components/AmbientPlayer";
+import { SettingsPanel } from "@/components/SettingsPanel";
 import { SkyTonight } from "@/components/SkyTonight";
 import { UserMenu } from "@/components/UserMenu";
 import { ZODIAC_SIGNS } from "@/lib/astro-calc";
@@ -240,7 +240,7 @@ export default function Chat() {
           {/* Controls — in-flow row above title on mobile, absolute overlay on desktop */}
           <div className="w-full flex items-center justify-between mb-3 md:mb-0 md:absolute md:inset-x-0 md:top-0">
             <div className="flex items-center gap-2">
-              <AmbientPlayer />
+              <SettingsPanel />
               <SkyTonight />
             </div>
             <div className="flex items-center gap-2">

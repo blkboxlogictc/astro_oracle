@@ -1,63 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthModal } from './AuthModal';
 import { OnboardingFlow } from './OnboardingFlow';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
-import { LogOut, Star, Calendar, Heart, User, Bell, BellOff } from 'lucide-react';
-import { apiCall } from '@/lib/api';
+import { Star, Calendar, Heart, User } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
 export function UserMenu() {
-  const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [, navigate] = useLocation();
   const [authOpen, setAuthOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
-  const [pushEnabled, setPushEnabled] = useState(false);
-  const [pushLoading, setPushLoading] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    apiCall<{ push_notifications: boolean }>('/notifications/preferences')
-      .then(prefs => setPushEnabled(prefs.push_notifications))
-      .catch(() => {});
-  }, [user]);
-
-  const handleEnableAlerts = async () => {
-    if (pushLoading) return;
-    setPushLoading(true);
-    try {
-      const deferred = (window as any).OneSignalDeferred as ((fn: (os: any) => void) => void) | undefined;
-      if (!deferred) return;
-      await new Promise<void>((resolve, reject) => {
-        deferred(async (OneSignal: any) => {
-          try {
-            await OneSignal.Notifications.requestPermission();
-            const playerId: string | undefined = OneSignal.User?.PushSubscription?.id;
-            if (playerId) {
-              await apiCall('/notifications/register-device', {
-                method: 'POST',
-                body: JSON.stringify({ playerId }),
-              });
-              setPushEnabled(true);
-            }
-            resolve();
-          } catch (err) {
-            reject(err);
-          }
-        });
-      });
-    } catch (err) {
-      console.error('[Alerts] Failed to enable push:', err);
-    } finally {
-      setPushLoading(false);
-    }
-  };
-
-  if (loading) return <div className="w-24 h-8 rounded-full bg-white/5 animate-pulse" />;
+  if (loading) return <div className="w-20 h-8 rounded-full bg-white/5 animate-pulse" />;
 
   if (!user) return (
     <>
@@ -85,18 +44,11 @@ export function UserMenu() {
         <motion.button whileTap={{ scale: 0.93 }}
           className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card/40 border border-purple-500/30 backdrop-blur-md text-sm font-medium text-white/90 hover:bg-card/60 transition-all shadow-[0_0_14px_rgba(107,33,168,0.2)]">
           <Star size={13} className="text-amber-400" />
-          {profile?.sun_sign ?? 'My Chart'}
+          My Chart
         </motion.button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end"
-        className="bg-[#0d0d1f] border border-purple-800/30 text-white rounded-2xl shadow-[0_0_30px_rgba(107,33,168,0.3)] min-w-[200px] p-1">
-        {profile && (
-          <div className="px-3 py-2 text-center">
-            <p className="text-xs text-white/40 mb-0.5">{user.email}</p>
-            <p className="text-xs text-purple-300/80">{profile.sun_sign} ☀ · {profile.moon_sign} ☽ · {profile.rising_sign} ↑</p>
-          </div>
-        )}
-        <DropdownMenuSeparator className="bg-white/10" />
+        className="bg-[#0d0d1f] border border-purple-800/30 text-white rounded-2xl shadow-[0_0_30px_rgba(107,33,168,0.3)] min-w-[180px] p-1">
         <DropdownMenuItem onClick={() => navigate('/horoscope')}
           className="rounded-xl text-sm text-white/80 hover:text-white hover:bg-white/5 focus:bg-white/5 cursor-pointer gap-2">
           <Star size={14} className="text-amber-400" /> Daily Horoscope
@@ -108,23 +60,6 @@ export function UserMenu() {
         <DropdownMenuItem onClick={() => navigate('/compatibility')}
           className="rounded-xl text-sm text-white/80 hover:text-white hover:bg-white/5 focus:bg-white/5 cursor-pointer gap-2">
           <Heart size={14} className="text-pink-400" /> Compatibility
-        </DropdownMenuItem>
-        <DropdownMenuSeparator className="bg-white/10" />
-        <DropdownMenuItem
-          onClick={pushEnabled ? undefined : handleEnableAlerts}
-          disabled={pushLoading}
-          className="rounded-xl text-sm text-white/80 hover:text-white hover:bg-white/5 focus:bg-white/5 cursor-pointer gap-2 disabled:opacity-50">
-          {pushEnabled
-            ? <><Bell size={14} className="text-green-400" /> Cosmic alerts on</>
-            : pushLoading
-            ? <><Bell size={14} className="text-white/30 animate-pulse" /> Enabling…</>
-            : <><BellOff size={14} className="text-white/40" /> Enable cosmic alerts</>
-          }
-        </DropdownMenuItem>
-        <DropdownMenuSeparator className="bg-white/10" />
-        <DropdownMenuItem onClick={signOut}
-          className="rounded-xl text-sm text-red-400/80 hover:text-red-400 hover:bg-red-900/10 focus:bg-red-900/10 cursor-pointer gap-2">
-          <LogOut size={14} /> Sign Out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

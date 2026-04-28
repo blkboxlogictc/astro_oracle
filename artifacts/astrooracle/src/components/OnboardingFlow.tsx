@@ -4,10 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { apiCall } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 
-interface Props { open: boolean; onComplete: () => void; }
+interface Props { open: boolean; onComplete: () => void; allowClose?: boolean; }
 interface GeoResult { display_name: string; lat: string; lon: string; }
 
-export function OnboardingFlow({ open, onComplete }: Props) {
+export function OnboardingFlow({ open, onComplete, allowClose = false }: Props) {
   const { refreshProfile } = useAuth();
   const [step, setStep] = useState(0);
   const [birthDate, setBirthDate] = useState('');
@@ -60,7 +60,7 @@ export function OnboardingFlow({ open, onComplete }: Props) {
     <Dialog open={open}>
       <DialogContent
         className="bg-[#0d0d1f] border border-purple-800/30 text-white max-w-sm rounded-2xl shadow-[0_0_60px_rgba(107,33,168,0.3)]"
-        onInteractOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => { if (!allowClose) e.preventDefault(); }}
       >
         <DialogHeader>
           <DialogTitle className="text-center text-xl font-serif text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70">
