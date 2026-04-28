@@ -60,7 +60,7 @@ export const searchKnowledgeBaseTool = tool(
 
     const { data, error } = await supabase.rpc('search_knowledge_base', {
       query_embedding: embedding,
-      match_threshold: 0.60,
+      match_threshold: 0.50,
       match_count: 5,
     });
 
