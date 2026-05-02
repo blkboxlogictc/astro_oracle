@@ -534,10 +534,10 @@ function findLunations(startDate, endDate) {
         event_type: 'new_moon',
         event_name: `New Moon in ${sign}`,
         event_date: jdToDate(nmJD).toISOString(),
-        description: `New Moon in ${sign} — a time for new intentions and fresh beginnings`,
-        scientific_description: `The Moon passes between Earth and Sun (conjunction). Illumination: 0%. Moon at ${sign} ${sun.degree}°.`,
+        description: `The New Moon in ${sign} marks a powerful reset point. In astrology, this is the optimal window to set intentions, begin new projects, and plant seeds aligned with ${sign}'s energy. The sky is at its darkest, inviting inward reflection before the lunar cycle builds toward fullness.`,
+        scientific_description: `The Moon reaches its conjunction with the Sun — both bodies share the same ecliptic longitude. From Earth, the lunar disk is completely unlit. Illumination: 0%. The Moon rises and sets with the Sun and is invisible to the naked eye. Moon positioned at ${sign} ${sun.degree.toFixed(1)}°.`,
         affected_signs: getAffectedSigns(sign),
-        visibility_info: 'Not visible — Moon is between Earth and Sun',
+        visibility_info: 'Not visible — Moon is between Earth and Sun at this phase',
       });
     }
 
@@ -548,10 +548,10 @@ function findLunations(startDate, endDate) {
         event_type: 'full_moon',
         event_name: `Full Moon in ${moonSign}`,
         event_date: jdToDate(fmJD).toISOString(),
-        description: `Full Moon in ${moonSign} — culmination, release, and emotional clarity`,
-        scientific_description: `Earth is between Moon and Sun (opposition). Moon fully illuminated. Moon in ${moonSign}, Sun in ${sun.sign}.`,
+        description: `The Full Moon in ${moonSign} brings the lunar cycle to its peak illumination. Emotions, energy, and hidden matters are amplified under this light. This is a moment of culmination — what you started at the New Moon two weeks ago reaches a turning point. ${moonSign} themes of ${getMoonSignTheme(moonSign)} come to the surface.`,
+        scientific_description: `Earth is positioned between the Moon and Sun (opposition). The lunar disk is fully illuminated — 100% visibility. The Moon rises near sunset and sets near sunrise, remaining above the horizon all night. Moon in ${moonSign}, Sun in ${sun.sign}. Angular separation: ~180°.`,
         affected_signs: getAffectedSigns(moonSign),
-        visibility_info: 'Visible all night — rises at sunset, sets at sunrise',
+        visibility_info: 'Visible all night — rises at sunset, reaches peak height at midnight, sets at sunrise',
       });
     }
 
@@ -588,16 +588,18 @@ function findRetrogradeStations(startDate, endDate) {
 
 function makeRetrogradeEvent(type, planet, pos, date) {
   const isRetro = type === 'retrograde_start';
+  const ruled   = getPlanetRuledSigns(planet);
+  const ruledStr = ruled.length ? ` Signs ruled by ${capitalize(planet)} — ${ruled.join(' and ')} — feel this most acutely.` : '';
   return {
     event_type: type,
-    event_name: `${capitalize(planet)} ${isRetro ? 'goes retrograde' : 'goes direct'}`,
+    event_name: `${capitalize(planet)} ${isRetro ? 'Retrograde' : 'Direct'} in ${pos.sign}`,
     event_date: date.toISOString(),
     description: isRetro
-      ? `${capitalize(planet)} stations retrograde in ${pos.sign} — time for review and reassessment`
-      : `${capitalize(planet)} stations direct in ${pos.sign} — forward momentum resumes`,
+      ? `${capitalize(planet)} stations retrograde in ${pos.sign}, beginning a period of review, revision, and re-evaluation of the themes ${capitalize(planet)} governs. This is not a time to push forward — it's a time to look back, reconsider, and refine. Plans made now may need adjustment once ${capitalize(planet)} moves direct.${ruledStr}`
+      : `${capitalize(planet)} stations direct in ${pos.sign}, ending its retrograde phase. The fog lifts and forward momentum returns. Decisions that were delayed or complicated during the retrograde can now move ahead with greater clarity. Expect a surge of energy in ${capitalize(planet)}-ruled areas of life.${ruledStr}`,
     scientific_description: isRetro
-      ? `${capitalize(planet)} appears to reverse direction as Earth's orbital speed creates an optical illusion of backward motion.`
-      : `${capitalize(planet)} resumes its apparent direct (forward) motion across the sky.`,
+      ? `${capitalize(planet)} appears to reverse direction in the sky as Earth overtakes it in its faster inner orbit. This is an optical illusion caused by the relative speeds of Earth and ${capitalize(planet)} around the Sun — the planet itself does not change direction. The retrograde arc begins in ${pos.sign} at ${pos.degree.toFixed(1)}°.`
+      : `${capitalize(planet)} resumes its apparent eastward (prograde) motion across the celestial sphere. At its stationary point, the planet briefly appears motionless before moving forward again. Station direct in ${pos.sign} at ${pos.degree.toFixed(1)}°.`,
     affected_signs: getPlanetRuledSigns(planet),
     visibility_info: getVisibilityNote(planet),
   };
@@ -611,12 +613,12 @@ function findMeteorShowers(startDate, endDate) {
       if (peak >= startDate && peak <= endDate) {
         events.push({
           event_type: 'meteor_shower',
-          event_name: `${s.name} Meteor Shower`,
+          event_name: `${s.name} Meteor Shower Peak`,
           event_date: peak.toISOString(),
-          description: `The ${s.name} peaks tonight — up to ${s.rate} under dark skies`,
-          scientific_description: `Earth passes through cometary debris. Meteors radiate from ${s.constellation} and burn up 70-120km above Earth's surface.`,
+          description: `The ${s.name} meteor shower reaches its annual peak tonight. Under dark skies away from city lights, observers can expect to see up to ${s.rate}. No telescope needed — the entire sky is your viewing screen. The shower appears to radiate outward from the constellation ${s.constellation}, though meteors streak across all parts of the sky. This is one of nature's most accessible astronomical events.`,
+          scientific_description: `Each year in mid-${new Date(Date.UTC(year, s.month - 1, s.day)).toLocaleString('en-US', { month: 'long' })}, Earth's orbit carries it through a stream of debris left by a passing comet. The particles — most no larger than a grain of sand — enter our atmosphere at speeds of 60-70 km/s and vaporize 70-120 km above the surface, producing the bright streaks of light we call meteors. The radiant point in ${s.constellation} is simply the perspective effect of parallel debris paths.`,
           affected_signs: [],
-          visibility_info: `Best after midnight, facing ${s.constellation}. Up to ${s.rate} under dark skies.`,
+          visibility_info: `Best viewing: after midnight, away from city lights. Lie on your back and look straight up. Allow 20 minutes for your eyes to adjust to the dark. Up to ${s.rate} under ideal conditions. Radiant in ${s.constellation}.`,
         });
       }
     }
@@ -665,6 +667,23 @@ export async function getPlanetRetrogrades(year) {
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function getMoonSignTheme(sign) {
+  return ({
+    Aries:       'courage, independence, and bold new beginnings',
+    Taurus:      'stability, material abundance, and sensory pleasure',
+    Gemini:      'communication, curiosity, and mental agility',
+    Cancer:      'home, family, emotional security, and intuition',
+    Leo:         'self-expression, creativity, recognition, and generosity',
+    Virgo:       'health, service, detail, and practical improvement',
+    Libra:       'relationships, balance, justice, and beauty',
+    Scorpio:     'transformation, depth, power, and emotional truth',
+    Sagittarius: 'expansion, philosophy, freedom, and truth-seeking',
+    Capricorn:   'ambition, discipline, structure, and long-term goals',
+    Aquarius:    'innovation, community, individuality, and the future',
+    Pisces:      'compassion, dreams, spirituality, and dissolution of boundaries',
+  })[sign] ?? 'depth and transformation';
+}
 
 function getAffectedSigns(sign) {
   const i = SIGNS.indexOf(sign);

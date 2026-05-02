@@ -31,12 +31,12 @@ export async function runEventMonitor() {
 }
 
 async function processEvent(event) {
-  const eventDate = event.date ?? new Date().toISOString().split('T')[0];
-  const eventType = event.type ?? 'general';
+  const eventType = event.event_type ?? 'general';
+  const eventDate = (event.event_date ?? new Date().toISOString()).split('T')[0];
 
   // Query by date range since event_date is timestamptz
   const dateStart = `${eventDate}T00:00:00Z`;
-  const dateEnd = `${eventDate}T23:59:59Z`;
+  const dateEnd   = `${eventDate}T23:59:59Z`;
 
   const { data: existing } = await supabase
     .from('cosmic_events')
@@ -54,10 +54,13 @@ async function processEvent(event) {
     const { data: inserted } = await supabase
       .from('cosmic_events')
       .insert({
-        event_type: eventType,
-        event_name: event.description ?? eventType,
-        description: event.description ?? eventType,
-        event_date: new Date(eventDate).toISOString(),
+        event_type:             eventType,
+        event_name:             event.event_name  ?? event.description ?? eventType,
+        description:            event.description ?? eventType,
+        scientific_description: event.scientific_description ?? null,
+        event_date:             event.event_date  ?? new Date(eventDate).toISOString(),
+        affected_signs:         event.affected_signs ?? null,
+        visibility_info:        event.visibility_info ?? null,
       })
       .select('id')
       .single();
