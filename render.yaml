@@ -41,9 +41,9 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
-      - key: ONESIGNAL_APP_ID
+      - key: WEBPUSHR_API_KEY
         sync: false
-      - key: ONESIGNAL_API_KEY
+      - key: WEBPUSHR_AUTH_TOKEN
         sync: false
       - key: JWT_SECRET
         sync: false

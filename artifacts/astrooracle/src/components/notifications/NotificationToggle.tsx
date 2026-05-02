@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import OneSignal from 'react-onesignal';
 import { motion } from 'framer-motion';
 import { Bell, BellOff, Crown, Lock, Mail, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiCall } from '@/lib/api';
+import {
+  requestPushPermission, identifyUser,
+  addToSegment, removeFromSegment,
+} from '@/services/webpushr';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,6 +40,14 @@ const DEFAULTS: NotifPrefs = {
   notify_retrogrades: true,
   notify_lunations: true,
   notify_meteor_showers: true,
+};
+
+// Maps pref keys to Webpushr segment names
+const SEGMENT_MAP: Partial<Record<keyof NotifPrefs, string>> = {
+  full_moon:       'Full Moon Opt-In',
+  retrogrades:     'Retrograde Opt-In',
+  meteor_showers:  'Meteor Shower Opt-In',
+  daily_horoscope: 'Daily Horoscope Opt-In',
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -111,7 +122,6 @@ export function NotificationToggle({ isPremium = false }: NotificationToggleProp
   const [pushLoading, setPushLoading] = useState(false);
   const [permissionState, setPermissionState] = useState<'default' | 'granted' | 'denied'>('default');
 
-  // Load current preferences and permission state
   useEffect(() => {
     if (!user) return;
     apiCall<NotifPrefs>('/notifications/preferences')
@@ -126,52 +136,42 @@ export function NotificationToggle({ isPremium = false }: NotificationToggleProp
   const setLoading = (key: string, val: boolean) =>
     setLoadingKeys(prev => { const s = new Set(prev); val ? s.add(key) : s.delete(key); return s; });
 
-  // Sync OneSignal tags so backend segments always reflect user preferences.
-  // Only fires when push is enabled — tags have no effect without a subscription.
-  const syncTags = useCallback((current: NotifPrefs) => {
-    if (!current.push_notifications) return;
-    try {
-      OneSignal.User.addTags({
-        plan:           isPremium ? 'premium' : 'free',
-        full_moon:      String(current.full_moon),
-        retrogrades:    String(current.retrogrades),
-        meteor_showers: String(current.meteor_showers),
-        daily_horoscope: String(current.daily_horoscope),
-        sun_sign:       profile?.sun_sign ?? '',
-      });
-    } catch { /* non-fatal — tags are best-effort */ }
-  }, [isPremium, profile?.sun_sign]);
+  // Sync a single Webpushr segment when a pref changes
+  const syncSegment = useCallback((key: keyof NotifPrefs, enabled: boolean, pushOn: boolean) => {
+    if (!pushOn) return;
+    const seg = SEGMENT_MAP[key];
+    if (!seg) return;
+    enabled ? addToSegment(seg) : removeFromSegment(seg);
+  }, []);
 
   const savePref = useCallback(async (updates: Partial<NotifPrefs>) => {
-    const key   = Object.keys(updates)[0];
-    const next  = { ...prefs, ...updates };
-    const prev  = prefs;
+    const key  = Object.keys(updates)[0] as keyof NotifPrefs;
+    const next = { ...prefs, ...updates };
+    const prev = prefs;
     setPrefs(next);
-    setLoading(key, true);
+    setLoading(String(key), true);
     try {
       await apiCall('/notifications/preferences', {
         method: 'PUT',
         body: JSON.stringify(updates),
       });
-      syncTags(next);
+      syncSegment(key, next[key] as boolean, next.push_notifications);
     } catch {
       setPrefs(prev);
-      syncTags(prev);
+      syncSegment(key, prev[key] as boolean, prev.push_notifications);
     } finally {
-      setLoading(key, false);
+      setLoading(String(key), false);
     }
-  }, [prefs, syncTags]);
+  }, [prefs, syncSegment]);
 
   const handleTogglePush = async () => {
     if (pushLoading) return;
 
-    // Disabling — just save the pref
     if (prefs.push_notifications) {
       await savePref({ push_notifications: false });
       return;
     }
 
-    // Enabling — request browser permission first
     if (permissionState === 'denied') {
       alert('Push notifications are blocked in your browser. Please enable them in your browser settings, then try again.');
       return;
@@ -179,28 +179,26 @@ export function NotificationToggle({ isPremium = false }: NotificationToggleProp
 
     setPushLoading(true);
     try {
-      const granted = await OneSignal.Notifications.requestPermission();
-      if (!granted) return;
-
+      await requestPushPermission();
       setPermissionState('granted');
 
-      // Link this subscriber to the Supabase user ID
-      await OneSignal.login(user!.id);
+      // Link this Webpushr subscriber to the Supabase user ID
+      identifyUser(user!.id);
 
-      // Get the subscription ID and register it with our backend
-      const subscriptionId = OneSignal.User?.PushSubscription?.id;
-      if (subscriptionId) {
-        await apiCall('/notifications/register-device', {
-          method: 'POST',
-          body: JSON.stringify({ playerId: subscriptionId }),
-        });
-      }
+      // Immediately enroll in all segments the user already has enabled
+      Object.entries(SEGMENT_MAP).forEach(([key, seg]) => {
+        if (prefs[key as keyof NotifPrefs]) addToSegment(seg);
+      });
+      if (isPremium) addToSegment('Premium Users');
 
       const next = { ...prefs, push_notifications: true };
       setPrefs(next);
-      syncTags(next); // push just enabled — set initial tags immediately
+      await apiCall('/notifications/preferences', {
+        method: 'PUT',
+        body: JSON.stringify({ push_notifications: true }),
+      });
     } catch (err) {
-      console.error('[OneSignal] Permission request failed:', err);
+      console.error('[Webpushr] Permission request failed:', err);
     } finally {
       setPushLoading(false);
     }
@@ -215,8 +213,12 @@ export function NotificationToggle({ isPremium = false }: NotificationToggleProp
       method: 'PUT',
       body: JSON.stringify({ full_moon: next, new_moon: next, notify_lunations: next }),
     })
-      .then(() => syncTags(nextPrefs))
-      .catch(() => { setPrefs(prevPrefs); syncTags(prevPrefs); });
+      .then(() => {
+        if (prefs.push_notifications) {
+          next ? addToSegment('Full Moon Opt-In') : removeFromSegment('Full Moon Opt-In');
+        }
+      })
+      .catch(() => setPrefs(prevPrefs));
   };
 
   const toggleRetrogrades = () => {
@@ -228,8 +230,12 @@ export function NotificationToggle({ isPremium = false }: NotificationToggleProp
       method: 'PUT',
       body: JSON.stringify({ retrogrades: next, notify_retrogrades: next }),
     })
-      .then(() => syncTags(nextPrefs))
-      .catch(() => { setPrefs(prevPrefs); syncTags(prevPrefs); });
+      .then(() => {
+        if (prefs.push_notifications) {
+          next ? addToSegment('Retrograde Opt-In') : removeFromSegment('Retrograde Opt-In');
+        }
+      })
+      .catch(() => setPrefs(prevPrefs));
   };
 
   const toggleMeteors = () => {
@@ -241,8 +247,12 @@ export function NotificationToggle({ isPremium = false }: NotificationToggleProp
       method: 'PUT',
       body: JSON.stringify({ meteor_showers: next, notify_meteor_showers: next }),
     })
-      .then(() => syncTags(nextPrefs))
-      .catch(() => { setPrefs(prevPrefs); syncTags(prevPrefs); });
+      .then(() => {
+        if (prefs.push_notifications) {
+          next ? addToSegment('Meteor Shower Opt-In') : removeFromSegment('Meteor Shower Opt-In');
+        }
+      })
+      .catch(() => setPrefs(prevPrefs));
   };
 
   if (!user) return null;
@@ -391,7 +401,7 @@ export function NotificationToggle({ isPremium = false }: NotificationToggleProp
         </div>
       </section>
 
-      {/* Premium upsell when locked features are visible */}
+      {/* Premium upsell */}
       {!isPremium && prefs.push_notifications && (
         <motion.div
           initial={{ opacity: 0 }}

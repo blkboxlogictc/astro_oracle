@@ -77,7 +77,6 @@
     "zod": "^3.23.8",
     "@supabase/supabase-js": "^2.105.0",
     "vite-plugin-pwa": "^0.21.1",
-    "workbox-window": "^7.3.0",
-    "react-onesignal": "^3.5.1"
+    "workbox-window": "^7.3.0"
   }
 }

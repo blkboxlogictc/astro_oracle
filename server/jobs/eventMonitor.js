@@ -4,7 +4,7 @@ import { sendCosmicEventEmail } from '../services/resend.js';
 import {
   sendFullMoonAlert, sendNewMoonAlert,
   sendRetrogradeAlert, sendMeteorShowerAlert,
-} from '../services/onesignal.js';
+} from '../services/webpushr.js';
 
 const PREF_COLUMN = {
   new_moon: 'notify_lunations',
@@ -70,11 +70,11 @@ async function processEvent(event) {
     eventId = inserted?.id;
   }
 
-  // Find opted-in users
+  // Find opted-in users for email (Webpushr handles push via segments)
   const prefCol = PREF_COLUMN[eventType];
   let query = supabase
     .from('notification_preferences')
-    .select('user_id, email_notifications, push_notifications, onesignal_player_id');
+    .select('user_id, email_notifications');
   if (prefCol) query = query.eq(prefCol, true);
 
   const { data: prefs } = await query;
@@ -84,7 +84,6 @@ async function processEvent(event) {
   }
 
   const emailUserIds = prefs.filter(p => p.email_notifications).map(p => p.user_id);
-  const pushUserIds  = prefs.filter(p => p.push_notifications).map(p => p.user_id);
 
   let profileMap = {};
   if (emailUserIds.length) {
@@ -105,14 +104,14 @@ async function processEvent(event) {
     ).catch(err => console.error(`[EventMonitor] Email failed for ${userId}:`, err.message));
   });
 
-  // Send targeted push via external user ID (OneSignal.login links user ID)
-  const pushPromise = dispatchPush(eventType, event, pushUserIds)
+  // Webpushr routes push to segment members automatically — no user ID list needed
+  const pushPromise = dispatchPush(eventType, event)
     .catch(err => console.error('[EventMonitor] Push failed:', err.message));
 
   await Promise.allSettled([...emailPromises, pushPromise]);
   await markNotified(eventId);
 
-  console.log(`[EventMonitor] Notified — ${emailUserIds.length} email, ${pushUserIds.length} push — "${event.event_name}"`);
+  console.log(`[EventMonitor] Notified — ${emailUserIds.length} email, push via segment — "${event.event_name}"`);
 }
 
 async function markNotified(eventId) {
@@ -123,14 +122,13 @@ async function markNotified(eventId) {
     .eq('id', eventId);
 }
 
-async function dispatchPush(eventType, event, userIds) {
-  if (!userIds?.length) return;
+async function dispatchPush(eventType, event) {
   const planet = event.event_name?.split(' ')[0]?.toLowerCase();
   switch (eventType) {
-    case 'full_moon':        return sendFullMoonAlert(event, userIds);
-    case 'new_moon':         return sendNewMoonAlert(event, userIds);
+    case 'full_moon':        return sendFullMoonAlert(event);
+    case 'new_moon':         return sendNewMoonAlert(event);
     case 'retrograde_start':
-    case 'retrograde_end':   return sendRetrogradeAlert(planet, event, userIds);
+    case 'retrograde_end':   return sendRetrogradeAlert(planet, event);
     case 'meteor_shower':    return sendMeteorShowerAlert(event);
     default: return null;
   }
