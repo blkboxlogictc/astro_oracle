@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings, Volume2, VolumeX, LogOut, User,
@@ -12,54 +12,27 @@ import { PremiumModal } from './PremiumModal';
 import { ChartInsightsModal } from './ChartInsightsModal';
 import { NotificationToggle } from './notifications/NotificationToggle';
 
-// ── Ambient sound hook (extracted from AmbientPlayer) ─────────────────────────
-type AudioRefs = { ctx: AudioContext; master: GainNode; oscs: OscillatorNode[] };
+// ── Ambient sound hook ────────────────────────────────────────────────────────
 
 function useAmbientSound() {
   const [playing, setPlaying] = useState(false);
-  const audioRef = useRef<AudioRefs | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const start = useCallback(() => {
-    const AC = window.AudioContext ?? (window as any).webkitAudioContext;
-    const ctx = new AC();
-    const master = ctx.createGain();
-    master.gain.value = 0;
-    master.connect(ctx.destination);
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 800; lp.Q.value = 0.4;
-    lp.connect(master);
-    const sweepLFO = ctx.createOscillator();
-    const sweepGain = ctx.createGain();
-    sweepLFO.frequency.value = 0.04; sweepGain.gain.value = 150;
-    sweepLFO.connect(sweepGain); sweepGain.connect(lp.frequency); sweepLFO.start();
-    const specs = [
-      { freq: 55.0, gain: 0.30 }, { freq: 110.22, gain: 0.38 },
-      { freq: 165.0, gain: 0.14 }, { freq: 220.0, gain: 0.08 },
-    ];
-    const oscs: OscillatorNode[] = [];
-    for (const s of specs) {
-      const osc = ctx.createOscillator(); const g = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.value = s.freq; g.gain.value = s.gain;
-      osc.connect(g); g.connect(lp); osc.start(); oscs.push(osc);
+  const toggle = () => {
+    if (playing) {
+      audioRef.current?.pause();
+      setPlaying(false);
+    } else {
+      if (!audioRef.current) {
+        audioRef.current = new Audio('/ambient.mp3');
+        audioRef.current.loop = true;
+        audioRef.current.volume = 0.35;
+      }
+      audioRef.current.play().catch(() => {});
+      setPlaying(true);
     }
-    const tLFO = ctx.createOscillator(); const tGain = ctx.createGain();
-    tLFO.frequency.value = 0.07; tGain.gain.value = 0.018;
-    tLFO.connect(tGain); tGain.connect(master.gain); tLFO.start();
-    master.gain.setTargetAtTime(0.14, ctx.currentTime, 1.8);
-    audioRef.current = { ctx, master, oscs }; setPlaying(true);
-  }, []);
+  };
 
-  const stop = useCallback(() => {
-    const a = audioRef.current; if (!a) return;
-    a.master.gain.setTargetAtTime(0, a.ctx.currentTime, 1.2);
-    setTimeout(() => {
-      try { a.oscs.forEach(o => o.stop()); a.ctx.close(); } catch { }
-      audioRef.current = null;
-    }, 5000);
-    setPlaying(false);
-  }, []);
-
-  const toggle = useCallback(() => { if (playing) stop(); else start(); }, [playing, start, stop]);
   return { playing, toggle };
 }
 
