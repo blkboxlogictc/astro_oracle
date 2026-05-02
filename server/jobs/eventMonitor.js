@@ -1,6 +1,6 @@
 import { supabase } from '../services/supabase.js';
 import { getUpcomingCosmicEvents } from '../services/ephemeris.js';
-import { sendEmail, cosmicEventEmailHtml } from '../services/resend.js';
+import { sendCosmicEventEmail } from '../services/resend.js';
 import { sendPushNotification } from '../services/onesignal.js';
 
 const PREF_COLUMN = {
@@ -92,11 +92,11 @@ async function processEvent(event) {
   const emailPromises = emailUserIds.map(userId => {
     const profile = profileMap[userId];
     if (!profile?.email) return Promise.resolve();
-    return sendEmail({
-      to: profile.email,
-      subject: `✨ Cosmic Alert: ${event.description ?? eventType}`,
-      html: cosmicEventEmailHtml(event, profile.display_name ?? 'Cosmic Seeker'),
-    }).catch(err => console.error(`[EventMonitor] Email failed for ${userId}:`, err.message));
+    return sendCosmicEventEmail(
+      profile.email,
+      profile.display_name ?? 'Cosmic Seeker',
+      event,
+    ).catch(err => console.error(`[EventMonitor] Email failed for ${userId}:`, err.message));
   });
 
   const playerIds = pushPrefs.map(p => p.onesignal_player_id);

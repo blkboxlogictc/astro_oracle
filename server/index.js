@@ -18,6 +18,8 @@ import horoscopeRouter from './routes/horoscope.js';
 import chartRouter from './routes/chart.js';
 import compatibilityRouter from './routes/compatibility.js';
 import notificationsRouter from './routes/notifications.js';
+import internalRouter from './routes/internal.js';
+import eventsRouter from './routes/events.js';
 
 const app = express();
 
@@ -79,6 +81,8 @@ app.use('/api/horoscope', horoscopeRouter);
 app.use('/api/chart', chartRouter);
 app.use('/api/compatibility', compatibilityRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/internal', internalRouter);
+app.use('/api/events', eventsRouter);
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {

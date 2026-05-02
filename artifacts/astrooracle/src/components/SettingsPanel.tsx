@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings, Volume2, VolumeX, Bell, BellOff, LogOut, User,
-  Star, ChevronDown, Sparkles, Shield, FileText, Edit3, Crown,
+  ChevronDown, Sparkles, Shield, FileText, Edit3, Crown, Mail,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,6 +10,7 @@ import { apiCall } from '@/lib/api';
 import { AuthModal } from './AuthModal';
 import { OnboardingFlow } from './OnboardingFlow';
 import { PremiumModal } from './PremiumModal';
+import { ChartInsightsModal } from './ChartInsightsModal';
 
 // ── Ambient sound hook (extracted from AmbientPlayer) ─────────────────────────
 type AudioRefs = { ctx: AudioContext; master: GainNode; oscs: OscillatorNode[] };
@@ -104,6 +105,30 @@ function ToggleRow({ icon, label, sublabel, enabled, loading, onClick }: {
   );
 }
 
+type NotifPrefs = {
+  email_notifications: boolean;
+  push_notifications: boolean;
+  daily_horoscope: boolean;
+  weekly_weather: boolean;
+  full_moon: boolean;
+  new_moon: boolean;
+  retrogrades: boolean;
+  meteor_showers: boolean;
+  notify_eclipses: boolean;
+};
+
+const NOTIF_DEFAULTS: NotifPrefs = {
+  email_notifications: true,
+  push_notifications: false,
+  daily_horoscope: true,
+  weekly_weather: true,
+  full_moon: true,
+  new_moon: true,
+  retrogrades: true,
+  meteor_showers: true,
+  notify_eclipses: true,
+};
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export function SettingsPanel() {
   const { user, profile, signOut } = useAuth();
@@ -111,32 +136,38 @@ export function SettingsPanel() {
   const [authOpen, setAuthOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
-  const [pushEnabled, setPushEnabled] = useState(false);
-  const [pushLoading, setPushLoading] = useState(false);
+  const [chartOpen, setChartOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [prefs, setPrefs] = useState<NotifPrefs>(NOTIF_DEFAULTS);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [prefsSaving, setPrefsSaving] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    apiCall<{ push_notifications: boolean }>('/notifications/preferences')
-      .then(p => setPushEnabled(p.push_notifications))
+    apiCall<NotifPrefs>('/notifications/preferences')
+      .then(p => setPrefs(prev => ({ ...prev, ...p })))
       .catch(() => {});
   }, [user]);
 
-  const handleToggleAlerts = async () => {
+  const savePref = async (key: keyof NotifPrefs, value: boolean) => {
+    setPrefs(prev => ({ ...prev, [key]: value }));
+    setPrefsSaving(true);
+    try {
+      await apiCall('/notifications/preferences', {
+        method: 'PUT',
+        body: JSON.stringify({ [key]: value }),
+      });
+    } catch {
+      setPrefs(prev => ({ ...prev, [key]: !value })); // revert on error
+    } finally { setPrefsSaving(false); }
+  };
+
+  const handleTogglePush = async () => {
     if (pushLoading) return;
-    if (pushEnabled) {
-      // Disable
-      setPushLoading(true);
-      try {
-        await apiCall('/notifications/preferences', {
-          method: 'PUT',
-          body: JSON.stringify({ push_notifications: false }),
-        });
-        setPushEnabled(false);
-      } catch { } finally { setPushLoading(false); }
+    if (prefs.push_notifications) {
+      await savePref('push_notifications', false);
       return;
     }
-    // Enable — request OneSignal permission
     setPushLoading(true);
     try {
       const deferred = (window as any).OneSignalDeferred as any[] | undefined;
@@ -151,7 +182,7 @@ export function SettingsPanel() {
                 method: 'POST',
                 body: JSON.stringify({ playerId }),
               });
-              setPushEnabled(true);
+              setPrefs(prev => ({ ...prev, push_notifications: true }));
             }
             resolve();
           } catch (e) { reject(e); }
@@ -160,9 +191,11 @@ export function SettingsPanel() {
     } catch { } finally { setPushLoading(false); }
   };
 
-  const initials = profile?.display_name
-    ? profile.display_name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
-    : user?.email?.[0]?.toUpperCase() ?? '✦';
+  const emailUsername = user?.email?.split('@')[0] ?? null;
+  const displayName = profile?.display_name ?? emailUsername ?? 'Cosmic Seeker';
+  const initials = displayName !== 'Cosmic Seeker'
+    ? displayName.split(/[\s._-]+/).map((w: string) => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
+    : '✦';
 
   return (
     <>
@@ -199,19 +232,23 @@ export function SettingsPanel() {
             {user && profile?.onboarding_complete && (
               <section>
                 <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 px-1">Account</p>
-                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/3 border border-white/8">
-                  <div className="w-10 h-10 rounded-full bg-purple-900/60 border border-purple-700/40 flex items-center justify-center text-sm font-bold text-purple-200 shrink-0">
+                <button
+                  onClick={() => { setSheetOpen(false); setTimeout(() => setChartOpen(true), 150); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/3 border border-white/8 hover:bg-white/6 hover:border-purple-700/30 transition-all duration-200 group text-left"
+                >
+                  <div className="w-10 h-10 rounded-full bg-purple-900/60 border border-purple-700/40 flex items-center justify-center text-sm font-bold text-purple-200 shrink-0 group-hover:border-purple-500/60 transition-colors">
                     {initials}
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm text-white/90 font-medium truncate">{profile?.display_name ?? 'Cosmic Seeker'}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-white/90 font-medium truncate">{displayName}</p>
                     <p className="text-xs text-white/40 mt-0.5">
                       {profile?.sun_sign && `☀ ${profile.sun_sign}`}
                       {profile?.moon_sign && ` · ☽ ${profile.moon_sign}`}
                       {profile?.rising_sign && ` · ↑ ${profile.rising_sign}`}
                     </p>
                   </div>
-                </div>
+                  <span className="text-white/20 group-hover:text-purple-400/60 text-xs transition-colors shrink-0">›</span>
+                </button>
               </section>
             )}
 
@@ -247,16 +284,115 @@ export function SettingsPanel() {
                 />
                 {user && (
                   <ToggleRow
-                    icon={pushEnabled ? <Bell size={14} /> : <BellOff size={14} />}
-                    label="Cosmic Alerts"
-                    sublabel="Push notifications for celestial events"
-                    enabled={pushEnabled}
+                    icon={prefs.push_notifications ? <Bell size={14} /> : <BellOff size={14} />}
+                    label="Push Alerts"
+                    sublabel="Browser notifications for celestial events"
+                    enabled={prefs.push_notifications}
                     loading={pushLoading}
-                    onClick={handleToggleAlerts}
+                    onClick={handleTogglePush}
                   />
                 )}
               </div>
             </section>
+
+            {/* ── Email Notifications ── */}
+            {user && (
+              <section>
+                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 px-1">Email Notifications</p>
+                <div className="space-y-0.5">
+                  <ToggleRow
+                    icon={<Mail size={14} />}
+                    label="Email Notifications"
+                    sublabel="Master toggle for all emails"
+                    enabled={prefs.email_notifications}
+                    loading={prefsSaving}
+                    onClick={() => savePref('email_notifications', !prefs.email_notifications)}
+                  />
+                  {prefs.email_notifications && (
+                    <div className="pl-3 border-l border-white/8 ml-4 mt-1 space-y-0.5">
+                      <ToggleRow
+                        icon={<span className="text-xs">⭐</span>}
+                        label="Daily Horoscope"
+                        sublabel="Sent each morning at 5 AM UTC"
+                        enabled={prefs.daily_horoscope}
+                        loading={prefsSaving}
+                        onClick={() => savePref('daily_horoscope', !prefs.daily_horoscope)}
+                      />
+                      <ToggleRow
+                        icon={<span className="text-xs">🌌</span>}
+                        label="Weekly Cosmic Weather"
+                        sublabel="Sent every Monday morning"
+                        enabled={prefs.weekly_weather}
+                        loading={prefsSaving}
+                        onClick={() => savePref('weekly_weather', !prefs.weekly_weather)}
+                      />
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* ── Cosmic Event Alerts ── */}
+            {user && (
+              <section>
+                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 px-1">Event Alerts</p>
+                <div className="space-y-0.5">
+                  <ToggleRow
+                    icon={<span className="text-xs">🌕</span>}
+                    label="Full & New Moons"
+                    sublabel="Lunar phase notifications"
+                    enabled={prefs.full_moon}
+                    loading={prefsSaving}
+                    onClick={() => {
+                      const next = !prefs.full_moon;
+                      setPrefs(p => ({ ...p, full_moon: next, new_moon: next }));
+                      apiCall('/notifications/preferences', {
+                        method: 'PUT',
+                        body: JSON.stringify({ full_moon: next, new_moon: next, notify_lunations: next }),
+                      }).catch(() => setPrefs(p => ({ ...p, full_moon: !next, new_moon: !next })));
+                    }}
+                  />
+                  <ToggleRow
+                    icon={<span className="text-xs">℞</span>}
+                    label="Retrogrades"
+                    sublabel="Planet station & direct alerts"
+                    enabled={prefs.retrogrades}
+                    loading={prefsSaving}
+                    onClick={() => {
+                      const next = !prefs.retrogrades;
+                      setPrefs(p => ({ ...p, retrogrades: next }));
+                      apiCall('/notifications/preferences', {
+                        method: 'PUT',
+                        body: JSON.stringify({ retrogrades: next, notify_retrogrades: next }),
+                      }).catch(() => setPrefs(p => ({ ...p, retrogrades: !next })));
+                    }}
+                  />
+                  <ToggleRow
+                    icon={<span className="text-xs">🌒</span>}
+                    label="Eclipses"
+                    sublabel="Solar and lunar eclipse alerts"
+                    enabled={prefs.notify_eclipses}
+                    loading={prefsSaving}
+                    onClick={() => savePref('notify_eclipses', !prefs.notify_eclipses)}
+                  />
+                  <ToggleRow
+                    icon={<span className="text-xs">☄️</span>}
+                    label="Meteor Showers"
+                    sublabel="Peak viewing night reminders"
+                    enabled={prefs.meteor_showers}
+                    loading={prefsSaving}
+                    onClick={() => {
+                      const next = !prefs.meteor_showers;
+                      setPrefs(p => ({ ...p, meteor_showers: next }));
+                      apiCall('/notifications/preferences', {
+                        method: 'PUT',
+                        body: JSON.stringify({ meteor_showers: next, notify_meteor_showers: next }),
+                      }).catch(() => setPrefs(p => ({ ...p, meteor_showers: !next })));
+                    }}
+                  />
+                </div>
+              </section>
+            )}
 
             {/* ── Subscription ── */}
             {user && (
@@ -335,6 +471,15 @@ export function SettingsPanel() {
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
       <OnboardingFlow open={onboardingOpen} onComplete={() => setOnboardingOpen(false)} allowClose />
       <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} reason="Unlock synastry readings and personalized daily forecasts" />
+      <ChartInsightsModal
+        open={chartOpen}
+        onClose={() => setChartOpen(false)}
+        displayName={displayName}
+        initials={initials}
+        sunSign={profile?.sun_sign ?? null}
+        moonSign={profile?.moon_sign ?? null}
+        risingSign={profile?.rising_sign ?? null}
+      />
     </>
   );
 }

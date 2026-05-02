@@ -1,6 +1,7 @@
 import { ChatAnthropic } from '@langchain/anthropic';
 import { supabase } from '../services/supabase.js';
 import { getCurrentPlanetaryPositions, getUpcomingCosmicEvents } from '../services/ephemeris.js';
+import { sendWeeklyWeatherEmail } from '../services/resend.js';
 
 const model = new ChatAnthropic({
   model: 'claude-haiku-4-5-20251001',
@@ -36,6 +37,7 @@ export async function runWeeklyWeather() {
     .upsert({ week_start: weekStart, content, generated_at: new Date().toISOString() },
       { onConflict: 'week_start' });
 
+  await sendWeeklyWeatherEmails(weekStart, content);
   console.log(`[WeeklyWeather] Complete for ${weekStart}`);
 }
 
@@ -109,6 +111,43 @@ Write an engaging, insightful weekly forecast. Return ONLY valid JSON:
   const match = response.content.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('No JSON in weekly weather response');
   return JSON.parse(match[0]);
+}
+
+async function sendWeeklyWeatherEmails(weekStart, content) {
+  const [year, month, day] = weekStart.split('-').map(Number);
+  const weekLabel = new Date(year, month - 1, day)
+    .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  const { data: prefs } = await supabase
+    .from('notification_preferences')
+    .select('user_id, email_notifications')
+    .eq('email_notifications', true);
+
+  if (!prefs?.length) return;
+
+  const userIds = prefs.map(p => p.user_id);
+  const [{ data: profiles }, { data: premiumSubs }] = await Promise.all([
+    supabase.from('user_profiles').select('id, email, display_name').in('id', userIds),
+    supabase.from('subscriptions').select('user_id').in('user_id', userIds).eq('plan', 'premium').in('status', ['active', 'trialing']),
+  ]);
+
+  if (!profiles?.length) return;
+
+  const premiumSet = new Set((premiumSubs ?? []).map(s => s.user_id));
+
+  await Promise.allSettled(
+    profiles.map(profile => {
+      if (!profile.email) return Promise.resolve();
+      return sendWeeklyWeatherEmail(profile.email, {
+        displayName: profile.display_name ?? 'Cosmic Seeker',
+        weekLabel,
+        content,
+        isPremium: premiumSet.has(profile.id),
+      }).catch(err => console.error(`[WeeklyWeather] Email failed for ${profile.id}:`, err.message));
+    })
+  );
+
+  console.log(`[WeeklyWeather] Sent emails to ${profiles.length} users`);
 }
 
 function getWeekStart() {

@@ -47,3 +47,5 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: INTERNAL_SECRET
+        sync: false

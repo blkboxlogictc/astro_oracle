@@ -9,6 +9,7 @@ import Chat from "@/pages/Chat";
 import DailyHoroscope from "@/components/DailyHoroscope";
 import WeeklyWeather from "@/components/WeeklyWeather";
 import CompatibilityAnalyzer from "@/components/CompatibilityAnalyzer";
+import CosmicEvents from "@/components/CosmicEvents";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/horoscope" component={DailyHoroscope} />
       <Route path="/weekly" component={WeeklyWeather} />
       <Route path="/compatibility" component={CompatibilityAnalyzer} />
+      <Route path="/events" component={CosmicEvents} />
       <Route component={NotFound} />
     </Switch>
   );

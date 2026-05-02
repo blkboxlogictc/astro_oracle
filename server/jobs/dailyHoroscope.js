@@ -1,6 +1,7 @@
 import { ChatAnthropic } from '@langchain/anthropic';
 import { supabase } from '../services/supabase.js';
 import { getCurrentPlanetaryPositions, calculateTransits } from '../services/ephemeris.js';
+import { sendDailyHoroscopeEmail } from '../services/resend.js';
 
 const model = new ChatAnthropic({
   model: 'claude-haiku-4-5-20251001',
@@ -17,7 +18,7 @@ export async function runDailyHoroscope() {
 
   const { data: users, error } = await supabase
     .from('user_profiles')
-    .select('id, sun_sign, moon_sign, rising_sign, natal_chart')
+    .select('id, email, display_name, sun_sign, moon_sign, rising_sign, natal_chart')
     .eq('onboarding_complete', true)
     .not('sun_sign', 'is', null);
 
@@ -31,10 +32,10 @@ export async function runDailyHoroscope() {
     return;
   }
 
-  // Batch-fetch premium status and already-generated records
+  // Batch-fetch premium status, email opt-ins, and already-generated records
   const userIds = users.map(u => u.id);
 
-  const [{ data: premiumSubs }, { data: existing }] = await Promise.all([
+  const [{ data: premiumSubs }, { data: existing }, { data: notifPrefs }] = await Promise.all([
     supabase
       .from('subscriptions')
       .select('user_id')
@@ -46,10 +47,19 @@ export async function runDailyHoroscope() {
       .select('user_id')
       .in('user_id', userIds)
       .eq('date', today),
+    supabase
+      .from('notification_preferences')
+      .select('user_id, email_notifications, daily_horoscope')
+      .in('user_id', userIds)
+      .eq('email_notifications', true),
   ]);
 
   const premiumSet = new Set((premiumSubs ?? []).map(s => s.user_id));
   const generatedSet = new Set((existing ?? []).map(h => h.user_id));
+  // daily_horoscope defaults to true — only exclude if explicitly set false
+  const emailOptInSet = new Set(
+    (notifPrefs ?? []).filter(p => p.daily_horoscope !== false).map(p => p.user_id)
+  );
   const toGenerate = users.filter(u => !generatedSet.has(u.id));
 
   console.log(`[DailyHoroscope] ${toGenerate.length} to generate, ${generatedSet.size} already done`);
@@ -59,7 +69,7 @@ export async function runDailyHoroscope() {
   for (let i = 0; i < toGenerate.length; i += BATCH) {
     await Promise.allSettled(
       toGenerate.slice(i, i + BATCH).map(u =>
-        generateAndSave(u.id, u, planets, today, premiumSet.has(u.id))
+        generateAndSave(u.id, u, planets, today, premiumSet.has(u.id), emailOptInSet.has(u.id))
       )
     );
     if (i + BATCH < toGenerate.length) await sleep(2000);
@@ -71,11 +81,11 @@ export async function runDailyHoroscope() {
 // ── On-demand generation (called by route when cron hasn't run yet) ───────────
 export async function generateHoroscopeOnDemand(userId, profile, date, isPremium) {
   const planets = await getCurrentPlanetaryPositions();
-  return generateAndSave(userId, profile, planets, date, isPremium);
+  return generateAndSave(userId, profile, planets, date, isPremium, false);
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
-async function generateAndSave(userId, profile, planets, date, isPremium) {
+async function generateAndSave(userId, profile, planets, date, isPremium, sendEmailNotif) {
   let transits = null;
   if (isPremium && profile.natal_chart) {
     try { transits = await calculateTransits(profile.natal_chart); } catch {}
@@ -97,6 +107,20 @@ async function generateAndSave(userId, profile, planets, date, isPremium) {
     .single();
 
   if (error) throw new Error(`DB upsert failed for ${userId}: ${error.message}`);
+
+  if (sendEmailNotif && profile.email && profile.sun_sign) {
+    const dateLabel = new Date(date + 'T12:00:00Z').toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric',
+    });
+    sendDailyHoroscopeEmail(profile.email, {
+      displayName: profile.display_name ?? 'Cosmic Seeker',
+      sunSign: capitalize(profile.sun_sign),
+      dateLabel,
+      content,
+      moonPhase: null,
+    }).catch(err => console.error(`[DailyHoroscope] Email failed for ${userId}:`, err.message));
+  }
+
   return data;
 }
 
