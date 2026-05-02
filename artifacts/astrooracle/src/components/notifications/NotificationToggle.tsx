@@ -179,7 +179,11 @@ export function NotificationToggle({ isPremium = false }: NotificationToggleProp
 
     setPushLoading(true);
     try {
-      await requestPushPermission();
+      const granted = await requestPushPermission();
+      if (!granted) {
+        setPermissionState(Notification.permission as 'default' | 'granted' | 'denied');
+        return;
+      }
       setPermissionState('granted');
 
       // Link this Webpushr subscriber to the Supabase user ID

@@ -5,13 +5,9 @@ function wp(action: string, options?: Record<string, unknown>) {
   (window as any).webpushr?.(action, options);
 }
 
-export function requestPushPermission(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    wp('subscribe', {
-      onSuccess: (token: string) => resolve(token),
-      onFailure: () => reject(new Error('Push permission denied')),
-    });
-  });
+export function requestPushPermission(): Promise<boolean> {
+  if (!('Notification' in window)) return Promise.resolve(false);
+  return Notification.requestPermission().then(result => result === 'granted');
 }
 
 export function identifyUser(userId: string) {

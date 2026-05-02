@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings, Volume2, VolumeX, LogOut, User,
@@ -13,22 +13,47 @@ import { ChartInsightsModal } from './ChartInsightsModal';
 import { NotificationToggle } from './notifications/NotificationToggle';
 
 // ── Ambient sound hook ────────────────────────────────────────────────────────
+// Module-level singleton so the audio element survives component remounts.
+let _ambientAudio: HTMLAudioElement | null = null;
+
+function getAmbientAudio(): HTMLAudioElement {
+  if (!_ambientAudio) {
+    _ambientAudio = new Audio('/ambient.mp3');
+    _ambientAudio.loop = true;
+    _ambientAudio.volume = 0.35;
+  }
+  return _ambientAudio;
+}
 
 function useAmbientSound() {
-  const [playing, setPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState<boolean>(() => {
+    // Initialise from localStorage so the toggle reflects reality on remount.
+    return localStorage.getItem('ambient') === 'on';
+  });
+
+  useEffect(() => {
+    // On mount: if the stored preference is 'on' but audio isn't playing, try to resume.
+    // (Autoplay policy may block this on first load — that's acceptable.)
+    const shouldPlay = localStorage.getItem('ambient') === 'on';
+    const audio = getAmbientAudio();
+    if (shouldPlay && audio.paused) {
+      audio.play().catch(() => {
+        // Autoplay blocked; reset preference so toggle shows correct OFF state.
+        localStorage.setItem('ambient', 'off');
+        setPlaying(false);
+      });
+    }
+  }, []);
 
   const toggle = () => {
+    const audio = getAmbientAudio();
     if (playing) {
-      audioRef.current?.pause();
+      audio.pause();
+      localStorage.setItem('ambient', 'off');
       setPlaying(false);
     } else {
-      if (!audioRef.current) {
-        audioRef.current = new Audio('/ambient.mp3');
-        audioRef.current.loop = true;
-        audioRef.current.volume = 0.35;
-      }
-      audioRef.current.play().catch(() => {});
+      audio.play().catch(() => {});
+      localStorage.setItem('ambient', 'on');
       setPlaying(true);
     }
   };
