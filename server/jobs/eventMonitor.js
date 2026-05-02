@@ -1,7 +1,10 @@
 import { supabase } from '../services/supabase.js';
 import { getUpcomingCosmicEvents } from '../services/ephemeris.js';
 import { sendCosmicEventEmail } from '../services/resend.js';
-import { sendPushNotification } from '../services/onesignal.js';
+import {
+  sendFullMoonAlert, sendNewMoonAlert,
+  sendRetrogradeAlert, sendMeteorShowerAlert,
+} from '../services/onesignal.js';
 
 const PREF_COLUMN = {
   new_moon: 'notify_lunations',
@@ -81,7 +84,7 @@ async function processEvent(event) {
   }
 
   const emailUserIds = prefs.filter(p => p.email_notifications).map(p => p.user_id);
-  const pushPrefs = prefs.filter(p => p.push_notifications && p.onesignal_player_id);
+  const pushUserIds  = prefs.filter(p => p.push_notifications).map(p => p.user_id);
 
   let profileMap = {};
   if (emailUserIds.length) {
@@ -102,18 +105,14 @@ async function processEvent(event) {
     ).catch(err => console.error(`[EventMonitor] Email failed for ${userId}:`, err.message));
   });
 
-  const playerIds = pushPrefs.map(p => p.onesignal_player_id);
-  const pushPromise = sendPushNotification({
-    playerIds,
-    title: '✨ Cosmic Alert',
-    body: event.description ?? eventType,
-    data: { eventType, eventDate },
-  }).catch(err => console.error('[EventMonitor] Push failed:', err.message));
+  // Send targeted push via external user ID (OneSignal.login links user ID)
+  const pushPromise = dispatchPush(eventType, event, pushUserIds)
+    .catch(err => console.error('[EventMonitor] Push failed:', err.message));
 
   await Promise.allSettled([...emailPromises, pushPromise]);
   await markNotified(eventId);
 
-  console.log(`[EventMonitor] Notified — ${emailUserIds.length} email, ${playerIds.length} push — "${event.description}"`);
+  console.log(`[EventMonitor] Notified — ${emailUserIds.length} email, ${pushUserIds.length} push — "${event.event_name}"`);
 }
 
 async function markNotified(eventId) {
@@ -122,4 +121,17 @@ async function markNotified(eventId) {
     .from('cosmic_events')
     .update({ notified_at: new Date().toISOString() })
     .eq('id', eventId);
+}
+
+async function dispatchPush(eventType, event, userIds) {
+  if (!userIds?.length) return;
+  const planet = event.event_name?.split(' ')[0]?.toLowerCase();
+  switch (eventType) {
+    case 'full_moon':        return sendFullMoonAlert(event, userIds);
+    case 'new_moon':         return sendNewMoonAlert(event, userIds);
+    case 'retrograde_start':
+    case 'retrograde_end':   return sendRetrogradeAlert(planet, event, userIds);
+    case 'meteor_shower':    return sendMeteorShowerAlert(event);
+    default: return null;
+  }
 }

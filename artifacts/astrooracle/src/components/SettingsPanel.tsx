@@ -1,16 +1,16 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Settings, Volume2, VolumeX, Bell, BellOff, LogOut, User,
-  ChevronDown, Sparkles, Shield, FileText, Edit3, Crown, Mail,
+  Settings, Volume2, VolumeX, LogOut, User,
+  ChevronDown, Sparkles, Shield, FileText, Edit3, Crown,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
-import { apiCall } from '@/lib/api';
 import { AuthModal } from './AuthModal';
 import { OnboardingFlow } from './OnboardingFlow';
 import { PremiumModal } from './PremiumModal';
 import { ChartInsightsModal } from './ChartInsightsModal';
+import { NotificationToggle } from './notifications/NotificationToggle';
 
 // ── Ambient sound hook (extracted from AmbientPlayer) ─────────────────────────
 type AudioRefs = { ctx: AudioContext; master: GainNode; oscs: OscillatorNode[] };
@@ -105,30 +105,6 @@ function ToggleRow({ icon, label, sublabel, enabled, loading, onClick }: {
   );
 }
 
-type NotifPrefs = {
-  email_notifications: boolean;
-  push_notifications: boolean;
-  daily_horoscope: boolean;
-  weekly_weather: boolean;
-  full_moon: boolean;
-  new_moon: boolean;
-  retrogrades: boolean;
-  meteor_showers: boolean;
-  notify_eclipses: boolean;
-};
-
-const NOTIF_DEFAULTS: NotifPrefs = {
-  email_notifications: true,
-  push_notifications: false,
-  daily_horoscope: true,
-  weekly_weather: true,
-  full_moon: true,
-  new_moon: true,
-  retrogrades: true,
-  meteor_showers: true,
-  notify_eclipses: true,
-};
-
 // ── Main component ─────────────────────────────────────────────────────────────
 export function SettingsPanel() {
   const { user, profile, signOut } = useAuth();
@@ -138,58 +114,6 @@ export function SettingsPanel() {
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [prefs, setPrefs] = useState<NotifPrefs>(NOTIF_DEFAULTS);
-  const [pushLoading, setPushLoading] = useState(false);
-  const [prefsSaving, setPrefsSaving] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    apiCall<NotifPrefs>('/notifications/preferences')
-      .then(p => setPrefs(prev => ({ ...prev, ...p })))
-      .catch(() => {});
-  }, [user]);
-
-  const savePref = async (key: keyof NotifPrefs, value: boolean) => {
-    setPrefs(prev => ({ ...prev, [key]: value }));
-    setPrefsSaving(true);
-    try {
-      await apiCall('/notifications/preferences', {
-        method: 'PUT',
-        body: JSON.stringify({ [key]: value }),
-      });
-    } catch {
-      setPrefs(prev => ({ ...prev, [key]: !value })); // revert on error
-    } finally { setPrefsSaving(false); }
-  };
-
-  const handleTogglePush = async () => {
-    if (pushLoading) return;
-    if (prefs.push_notifications) {
-      await savePref('push_notifications', false);
-      return;
-    }
-    setPushLoading(true);
-    try {
-      const deferred = (window as any).OneSignalDeferred as any[] | undefined;
-      if (!deferred) return;
-      await new Promise<void>((resolve, reject) => {
-        deferred.push(async (OneSignal: any) => {
-          try {
-            await OneSignal.Notifications.requestPermission();
-            const playerId: string | undefined = OneSignal.User?.PushSubscription?.id;
-            if (playerId) {
-              await apiCall('/notifications/register-device', {
-                method: 'POST',
-                body: JSON.stringify({ playerId }),
-              });
-              setPrefs(prev => ({ ...prev, push_notifications: true }));
-            }
-            resolve();
-          } catch (e) { reject(e); }
-        });
-      });
-    } catch { } finally { setPushLoading(false); }
-  };
 
   const emailUsername = user?.email?.split('@')[0] ?? null;
   const displayName = profile?.display_name ?? emailUsername ?? 'Cosmic Seeker';
@@ -282,117 +206,11 @@ export function SettingsPanel() {
                   enabled={soundOn}
                   onClick={toggleSound}
                 />
-                {user && (
-                  <ToggleRow
-                    icon={prefs.push_notifications ? <Bell size={14} /> : <BellOff size={14} />}
-                    label="Push Alerts"
-                    sublabel="Browser notifications for celestial events"
-                    enabled={prefs.push_notifications}
-                    loading={pushLoading}
-                    onClick={handleTogglePush}
-                  />
-                )}
               </div>
             </section>
 
-            {/* ── Email Notifications ── */}
-            {user && (
-              <section>
-                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 px-1">Email Notifications</p>
-                <div className="space-y-0.5">
-                  <ToggleRow
-                    icon={<Mail size={14} />}
-                    label="Email Notifications"
-                    sublabel="Master toggle for all emails"
-                    enabled={prefs.email_notifications}
-                    loading={prefsSaving}
-                    onClick={() => savePref('email_notifications', !prefs.email_notifications)}
-                  />
-                  {prefs.email_notifications && (
-                    <div className="pl-3 border-l border-white/8 ml-4 mt-1 space-y-0.5">
-                      <ToggleRow
-                        icon={<span className="text-xs">⭐</span>}
-                        label="Daily Horoscope"
-                        sublabel="Sent each morning at 5 AM UTC"
-                        enabled={prefs.daily_horoscope}
-                        loading={prefsSaving}
-                        onClick={() => savePref('daily_horoscope', !prefs.daily_horoscope)}
-                      />
-                      <ToggleRow
-                        icon={<span className="text-xs">🌌</span>}
-                        label="Weekly Cosmic Weather"
-                        sublabel="Sent every Monday morning"
-                        enabled={prefs.weekly_weather}
-                        loading={prefsSaving}
-                        onClick={() => savePref('weekly_weather', !prefs.weekly_weather)}
-                      />
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* ── Cosmic Event Alerts ── */}
-            {user && (
-              <section>
-                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 px-1">Event Alerts</p>
-                <div className="space-y-0.5">
-                  <ToggleRow
-                    icon={<span className="text-xs">🌕</span>}
-                    label="Full & New Moons"
-                    sublabel="Lunar phase notifications"
-                    enabled={prefs.full_moon}
-                    loading={prefsSaving}
-                    onClick={() => {
-                      const next = !prefs.full_moon;
-                      setPrefs(p => ({ ...p, full_moon: next, new_moon: next }));
-                      apiCall('/notifications/preferences', {
-                        method: 'PUT',
-                        body: JSON.stringify({ full_moon: next, new_moon: next, notify_lunations: next }),
-                      }).catch(() => setPrefs(p => ({ ...p, full_moon: !next, new_moon: !next })));
-                    }}
-                  />
-                  <ToggleRow
-                    icon={<span className="text-xs">℞</span>}
-                    label="Retrogrades"
-                    sublabel="Planet station & direct alerts"
-                    enabled={prefs.retrogrades}
-                    loading={prefsSaving}
-                    onClick={() => {
-                      const next = !prefs.retrogrades;
-                      setPrefs(p => ({ ...p, retrogrades: next }));
-                      apiCall('/notifications/preferences', {
-                        method: 'PUT',
-                        body: JSON.stringify({ retrogrades: next, notify_retrogrades: next }),
-                      }).catch(() => setPrefs(p => ({ ...p, retrogrades: !next })));
-                    }}
-                  />
-                  <ToggleRow
-                    icon={<span className="text-xs">🌒</span>}
-                    label="Eclipses"
-                    sublabel="Solar and lunar eclipse alerts"
-                    enabled={prefs.notify_eclipses}
-                    loading={prefsSaving}
-                    onClick={() => savePref('notify_eclipses', !prefs.notify_eclipses)}
-                  />
-                  <ToggleRow
-                    icon={<span className="text-xs">☄️</span>}
-                    label="Meteor Showers"
-                    sublabel="Peak viewing night reminders"
-                    enabled={prefs.meteor_showers}
-                    loading={prefsSaving}
-                    onClick={() => {
-                      const next = !prefs.meteor_showers;
-                      setPrefs(p => ({ ...p, meteor_showers: next }));
-                      apiCall('/notifications/preferences', {
-                        method: 'PUT',
-                        body: JSON.stringify({ meteor_showers: next, notify_meteor_showers: next }),
-                      }).catch(() => setPrefs(p => ({ ...p, meteor_showers: !next })));
-                    }}
-                  />
-                </div>
-              </section>
-            )}
+            {/* ── Notifications (push + email) ── */}
+            {user && <NotificationToggle isPremium={false} />}
 
             {/* ── Subscription ── */}
             {user && (
