@@ -105,7 +105,7 @@ interface NotificationToggleProps {
 }
 
 export function NotificationToggle({ isPremium = false }: NotificationToggleProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULTS);
   const [loadingKeys, setLoadingKeys] = useState<Set<string>>(new Set());
   const [pushLoading, setPushLoading] = useState(false);
@@ -126,21 +126,41 @@ export function NotificationToggle({ isPremium = false }: NotificationToggleProp
   const setLoading = (key: string, val: boolean) =>
     setLoadingKeys(prev => { const s = new Set(prev); val ? s.add(key) : s.delete(key); return s; });
 
+  // Sync OneSignal tags so backend segments always reflect user preferences.
+  // Only fires when push is enabled — tags have no effect without a subscription.
+  const syncTags = useCallback((current: NotifPrefs) => {
+    if (!current.push_notifications) return;
+    try {
+      OneSignal.User.addTags({
+        plan:           isPremium ? 'premium' : 'free',
+        full_moon:      String(current.full_moon),
+        retrogrades:    String(current.retrogrades),
+        meteor_showers: String(current.meteor_showers),
+        daily_horoscope: String(current.daily_horoscope),
+        sun_sign:       profile?.sun_sign ?? '',
+      });
+    } catch { /* non-fatal — tags are best-effort */ }
+  }, [isPremium, profile?.sun_sign]);
+
   const savePref = useCallback(async (updates: Partial<NotifPrefs>) => {
-    const key = Object.keys(updates)[0];
-    setPrefs(prev => ({ ...prev, ...updates }));
+    const key   = Object.keys(updates)[0];
+    const next  = { ...prefs, ...updates };
+    const prev  = prefs;
+    setPrefs(next);
     setLoading(key, true);
     try {
       await apiCall('/notifications/preferences', {
         method: 'PUT',
         body: JSON.stringify(updates),
       });
+      syncTags(next);
     } catch {
-      setPrefs(prev => ({ ...prev, ...Object.fromEntries(Object.entries(updates).map(([k, v]) => [k, !v])) }));
+      setPrefs(prev);
+      syncTags(prev);
     } finally {
       setLoading(key, false);
     }
-  }, []);
+  }, [prefs, syncTags]);
 
   const handleTogglePush = async () => {
     if (pushLoading) return;
@@ -176,7 +196,9 @@ export function NotificationToggle({ isPremium = false }: NotificationToggleProp
         });
       }
 
-      setPrefs(prev => ({ ...prev, push_notifications: true }));
+      const next = { ...prefs, push_notifications: true };
+      setPrefs(next);
+      syncTags(next); // push just enabled — set initial tags immediately
     } catch (err) {
       console.error('[OneSignal] Permission request failed:', err);
     } finally {
@@ -186,29 +208,41 @@ export function NotificationToggle({ isPremium = false }: NotificationToggleProp
 
   const toggleLunations = () => {
     const next = !prefs.full_moon;
-    setPrefs(p => ({ ...p, full_moon: next, new_moon: next, notify_lunations: next }));
+    const nextPrefs = { ...prefs, full_moon: next, new_moon: next, notify_lunations: next };
+    const prevPrefs = prefs;
+    setPrefs(nextPrefs);
     apiCall('/notifications/preferences', {
       method: 'PUT',
       body: JSON.stringify({ full_moon: next, new_moon: next, notify_lunations: next }),
-    }).catch(() => setPrefs(p => ({ ...p, full_moon: !next, new_moon: !next, notify_lunations: !next })));
+    })
+      .then(() => syncTags(nextPrefs))
+      .catch(() => { setPrefs(prevPrefs); syncTags(prevPrefs); });
   };
 
   const toggleRetrogrades = () => {
     const next = !prefs.retrogrades;
-    setPrefs(p => ({ ...p, retrogrades: next, notify_retrogrades: next }));
+    const nextPrefs = { ...prefs, retrogrades: next, notify_retrogrades: next };
+    const prevPrefs = prefs;
+    setPrefs(nextPrefs);
     apiCall('/notifications/preferences', {
       method: 'PUT',
       body: JSON.stringify({ retrogrades: next, notify_retrogrades: next }),
-    }).catch(() => setPrefs(p => ({ ...p, retrogrades: !next, notify_retrogrades: !next })));
+    })
+      .then(() => syncTags(nextPrefs))
+      .catch(() => { setPrefs(prevPrefs); syncTags(prevPrefs); });
   };
 
   const toggleMeteors = () => {
     const next = !prefs.meteor_showers;
-    setPrefs(p => ({ ...p, meteor_showers: next, notify_meteor_showers: next }));
+    const nextPrefs = { ...prefs, meteor_showers: next, notify_meteor_showers: next };
+    const prevPrefs = prefs;
+    setPrefs(nextPrefs);
     apiCall('/notifications/preferences', {
       method: 'PUT',
       body: JSON.stringify({ meteor_showers: next, notify_meteor_showers: next }),
-    }).catch(() => setPrefs(p => ({ ...p, meteor_showers: !next, notify_meteor_showers: !next })));
+    })
+      .then(() => syncTags(nextPrefs))
+      .catch(() => { setPrefs(prevPrefs); syncTags(prevPrefs); });
   };
 
   if (!user) return null;
