@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useLocation } from "wouter";
 import { Starfield } from "@/components/Starfield";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { SkyTonight } from "@/components/SkyTonight";
@@ -9,7 +10,7 @@ import { ZODIAC_SIGNS } from "@/lib/astro-calc";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { API_BASE } from "@/lib/api";
-import { Sparkles, Star, Telescope, Send } from "lucide-react";
+import { Sparkles, Star, Telescope, Send, CalendarDays } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -108,6 +109,7 @@ function AssistantMessage({ msg }: { msg: Message }) {
 
 export default function Chat() {
   const { profile } = useAuth();
+  const [, setLocation] = useLocation();
   const [mode, setMode] = useState<Mode>("science");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -242,6 +244,14 @@ export default function Chat() {
             <div className="flex items-center gap-2">
               <SettingsPanel />
               <SkyTonight />
+              <motion.button
+                whileTap={{ scale: 0.88 }}
+                onClick={() => setLocation("/events")}
+                title="Cosmic Events"
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-card/40 border border-white/10 backdrop-blur-md text-white/45 hover:text-white/75 hover:bg-card/60 transition-all duration-300"
+              >
+                <CalendarDays size={14} />
+              </motion.button>
             </div>
             <div className="flex items-center gap-2">
               <UserMenu />

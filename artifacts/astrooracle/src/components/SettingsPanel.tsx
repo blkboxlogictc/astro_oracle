@@ -229,7 +229,7 @@ export function SettingsPanel() {
           <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
 
             {/* ── Account ── */}
-            {user && profile?.onboarding_complete && (
+            {user && (
               <section>
                 <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 px-1">Account</p>
                 <button
@@ -242,9 +242,9 @@ export function SettingsPanel() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-white/90 font-medium truncate">{displayName}</p>
                     <p className="text-xs text-white/40 mt-0.5">
-                      {profile?.sun_sign && `☀ ${profile.sun_sign}`}
-                      {profile?.moon_sign && ` · ☽ ${profile.moon_sign}`}
-                      {profile?.rising_sign && ` · ↑ ${profile.rising_sign}`}
+                      {profile?.sun_sign
+                        ? `${`☀ ${profile.sun_sign}`}${profile?.moon_sign ? ` · ☽ ${profile.moon_sign}` : ''}${profile?.rising_sign ? ` · ↑ ${profile.rising_sign}` : ''}`
+                        : 'Tap to view your natal chart'}
                     </p>
                   </div>
                   <span className="text-white/20 group-hover:text-purple-400/60 text-xs transition-colors shrink-0">›</span>
