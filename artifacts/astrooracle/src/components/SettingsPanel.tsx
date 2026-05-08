@@ -104,7 +104,12 @@ function ToggleRow({ icon, label, sublabel, enabled, loading, onClick }: {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export function SettingsPanel() {
+interface SettingsPanelProps {
+  /** When true renders the trigger as a glass avatar button (for MinimalTopBar) */
+  avatarMode?: boolean;
+}
+
+export function SettingsPanel({ avatarMode = false }: SettingsPanelProps) {
   const { user, profile, signOut } = useAuth();
   const { playing: soundOn, toggle: toggleSound } = useAmbientSound();
   const [authOpen, setAuthOpen] = useState(false);
@@ -119,17 +124,37 @@ export function SettingsPanel() {
     ? displayName.split(/[\s._-]+/).map((w: string) => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
     : '✦';
 
+  const Trigger = avatarMode ? (
+    // Avatar button for MinimalTopBar
+    <motion.button
+      whileTap={{ scale: 0.88 }}
+      title="Account & Settings"
+      className="w-8 h-8 flex items-center justify-center rounded-full border border-white/10 backdrop-blur-md text-sm font-bold text-white transition-all duration-300"
+      style={{
+        background: user
+          ? 'rgba(107,33,168,0.5)'
+          : 'rgba(18,18,28,0.55)',
+        boxShadow: user ? '0 0 12px rgba(168,85,247,0.3)' : 'none',
+      }}
+    >
+      {user ? initials : <Settings size={14} className="text-white/45" />}
+    </motion.button>
+  ) : (
+    // Default gear icon
+    <motion.button
+      whileTap={{ scale: 0.88 }}
+      title="Settings"
+      className="w-8 h-8 flex items-center justify-center rounded-full bg-card/40 border border-white/10 backdrop-blur-md text-white/45 hover:text-white/75 hover:bg-card/60 transition-all duration-300"
+    >
+      <Settings size={14} />
+    </motion.button>
+  );
+
   return (
     <>
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetTrigger asChild>
-          <motion.button
-            whileTap={{ scale: 0.88 }}
-            title="Settings"
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-card/40 border border-white/10 backdrop-blur-md text-white/45 hover:text-white/75 hover:bg-card/60 transition-all duration-300"
-          >
-            <Settings size={14} />
-          </motion.button>
+          {Trigger}
         </SheetTrigger>
 
         <SheetContent

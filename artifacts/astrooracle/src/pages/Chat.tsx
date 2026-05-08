@@ -3,11 +3,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLocation } from "wouter";
 import { Starfield } from "@/components/Starfield";
-import { SettingsPanel } from "@/components/SettingsPanel";
 import { SkyTonight } from "@/components/SkyTonight";
 import { UserMenu } from "@/components/UserMenu";
+import { HistoryPanel } from "@/components/HistoryPanel";
 import { ZODIAC_SIGNS } from "@/lib/astro-calc";
 import { useAuth } from "@/hooks/useAuth";
+import { useAppMode } from "@/context/AppContext";
 import { supabase } from "@/lib/supabase";
 import { API_BASE } from "@/lib/api";
 import { Sparkles, Star, Telescope, Send, CalendarDays } from "lucide-react";
@@ -19,7 +20,6 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type Mode = "science" | "mystic";
 type Message = {
   id: string;
   role: "user" | "assistant";
@@ -110,13 +110,22 @@ function AssistantMessage({ msg }: { msg: Message }) {
 export default function Chat() {
   const { profile } = useAuth();
   const [, setLocation] = useLocation();
-  const [mode, setMode] = useState<Mode>("science");
+  // Mode is now global via AppContext; the local type alias is kept for clarity
+  const { mode } = useAppMode();
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Listen for the 'open-history' event dispatched by OrbitalDock
+  useEffect(() => {
+    const handler = () => setHistoryOpen(true);
+    window.addEventListener('open-history', handler);
+    return () => window.removeEventListener('open-history', handler);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -236,13 +245,15 @@ export default function Chat() {
       {/* Dark vignette base */}
       <div className="absolute inset-0 z-0 pointer-events-none bg-gradient-to-b from-transparent via-background/60 to-background" />
 
-      <main className="relative z-10 flex flex-col h-[100dvh] max-w-4xl mx-auto px-4 py-6 md:py-8">
-        {/* Header */}
-        <header className="flex flex-col items-center mb-4 md:mb-8 shrink-0 relative">
-          {/* Controls — in-flow row above title on mobile, absolute overlay on desktop */}
-          <div className="w-full flex items-center justify-between mb-3 md:mb-0 md:absolute md:inset-x-0 md:top-0">
+      {/* HistoryPanel rendered at this level so it overlays the chat */}
+      <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} />
+
+      <main className="relative z-10 flex flex-col h-[100dvh] max-w-4xl mx-auto px-4 pb-6 md:pb-8" style={{ paddingTop: 'max(56px, calc(env(safe-area-inset-top) + 44px))' }}>
+        {/* Header — title + secondary controls only; mode toggle lives in MinimalTopBar */}
+        <header className="flex flex-col items-center mb-4 md:mb-6 shrink-0 relative">
+          {/* Secondary controls */}
+          <div className="w-full flex items-center justify-between mb-2 md:mb-0 md:absolute md:inset-x-0 md:top-0">
             <div className="flex items-center gap-2">
-              <SettingsPanel />
               <SkyTonight />
               <motion.button
                 whileTap={{ scale: 0.88 }}
@@ -255,24 +266,6 @@ export default function Chat() {
             </div>
             <div className="flex items-center gap-2">
               <UserMenu />
-              <motion.button
-                onClick={() => setMode(isScience ? "mystic" : "science")}
-                whileTap={{ scale: 0.93 }}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card/40 border backdrop-blur-md text-sm font-medium transition-all duration-500 hover:bg-card/60",
-                  isScience
-                    ? "border-blue-500/25 shadow-[0_0_14px_rgba(59,130,246,0.18)]"
-                    : "border-amber-500/25 shadow-[0_0_14px_rgba(245,158,11,0.18)]"
-                )}
-              >
-                <span className={cn("transition-opacity duration-300", isScience ? "opacity-100" : "opacity-40")}>
-                  🔭<span className="hidden sm:inline"> Science</span>
-                </span>
-                <span className="w-px h-4 bg-white/20" />
-                <span className={cn("transition-opacity duration-300", !isScience ? "opacity-100" : "opacity-40")}>
-                  ✨<span className="hidden sm:inline"> Mystic</span>
-                </span>
-              </motion.button>
             </div>
           </div>
 
