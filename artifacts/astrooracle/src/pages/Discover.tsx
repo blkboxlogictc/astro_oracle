@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Camera, Telescope, Calendar, Moon, Star, Sparkles, Lock, Crown, Globe } from 'lucide-react';
 import { useAppMode } from '@/context/AppContext';
 import { useAuth } from '@/hooks/useAuth';
+import { usePremium } from '@/hooks/usePremium';
 import { Starfield } from '@/components/Starfield';
 
 const EXPLORE_OBJECTS = [
@@ -55,8 +56,8 @@ function Card({ title, caption, tint, icon, onClick, locked, tall }: CardProps) 
 export default function Discover() {
   const [, navigate] = useLocation();
   const { mode } = useAppMode();
-  const { user, profile } = useAuth();
-  const isPremium = false; // wire to real subscription check when available
+  const { user } = useAuth();
+  const { isPremium } = usePremium();
 
   const today = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' }).format(new Date());
 

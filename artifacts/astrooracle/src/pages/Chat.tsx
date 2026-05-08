@@ -9,6 +9,7 @@ import { HistoryPanel } from "@/components/HistoryPanel";
 import { ZODIAC_SIGNS } from "@/lib/astro-calc";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppMode } from "@/context/AppContext";
+import { useChatSessions } from "@/hooks/useChatSessions";
 import { supabase } from "@/lib/supabase";
 import { API_BASE } from "@/lib/api";
 import { Sparkles, Star, Telescope, Send, CalendarDays } from "lucide-react";
@@ -108,32 +109,76 @@ function AssistantMessage({ msg }: { msg: Message }) {
 }
 
 export default function Chat() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const [, setLocation] = useLocation();
-  // Mode is now global via AppContext; the local type alias is kept for clarity
   const { mode } = useAppMode();
+  const chatSessions = useChatSessions();
+
   const [historyOpen, setHistoryOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
+
+  // Track current session without causing re-renders inside handleSubmit
+  const sessionIdRef = useRef<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Listen for the 'open-history' event dispatched by OrbitalDock
+  // Open history panel when OrbitalDock dispatches the event
   useEffect(() => {
     const handler = () => setHistoryOpen(true);
     window.addEventListener('open-history', handler);
     return () => window.removeEventListener('open-history', handler);
   }, []);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  // Auto-send a prefilled question coming from ARSkyGazer (or other screens)
+  useEffect(() => {
+    const prefill = sessionStorage.getItem('chatPrefill');
+    if (prefill) {
+      sessionStorage.removeItem('chatPrefill');
+      // Small delay so the component is fully mounted before streaming
+      setTimeout(() => handleSubmit(prefill), 400);
+    }
+    // Only on mount — intentionally empty deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
+
+  const handleSelectSession = async (id: string | null) => {
+    if (!id) {
+      // New conversation
+      sessionIdRef.current = null;
+      setActiveSessionId(null);
+      setMessages([]);
+      return;
+    }
+    const dbMessages = await chatSessions.loadMessages(id);
+    setMessages(
+      dbMessages.map(m => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        toolsUsed: m.tools_used ?? [],
+      }))
+    );
+    sessionIdRef.current = id;
+    setActiveSessionId(id);
+  };
+
+  const handleDeleteSession = async (id: string) => {
+    await chatSessions.deleteSession(id);
+    if (sessionIdRef.current === id) {
+      sessionIdRef.current = null;
+      setActiveSessionId(null);
+      setMessages([]);
+    }
+  };
 
   const handleSubmit = async (text: string) => {
     if (!text.trim() || isStreaming) return;
@@ -143,8 +188,25 @@ export default function Chat() {
     setInput("");
     setIsStreaming(true);
 
+    // Session management: create session on first message for logged-in users
+    let sessionId = sessionIdRef.current;
+    if (user && !sessionId) {
+      const title = text.trim().slice(0, 60);
+      const session = await chatSessions.createSession(title, mode);
+      if (session) {
+        sessionId = session.id;
+        sessionIdRef.current = session.id;
+        setActiveSessionId(session.id);
+      }
+    }
+    if (user && sessionId) {
+      chatSessions.saveMessage(sessionId, 'user', text);
+    }
+
     const assistantMsgId = (Date.now() + 1).toString();
     setMessages((prev) => [...prev, { id: assistantMsgId, role: "assistant", content: "" }]);
+
+    let assistantContent = '';
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -169,6 +231,7 @@ export default function Chat() {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let finalToolsUsed: string[] = [];
 
       while (true) {
         const { value, done } = await reader.read();
@@ -186,20 +249,33 @@ export default function Chat() {
                 break;
               }
               if (data.done) {
+                finalToolsUsed = data.toolsUsed ?? [];
                 setActiveTool(null);
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMsgId
-                      ? { ...msg, toolsUsed: data.toolsUsed ?? [] }
+                      ? { ...msg, toolsUsed: finalToolsUsed }
                       : msg
                   )
                 );
+
+                // Persist assistant message and update session preview
+                if (user && sessionId && assistantContent) {
+                  chatSessions.saveMessage(sessionId, 'assistant', assistantContent, finalToolsUsed);
+                  chatSessions.updateSession(sessionId, {
+                    preview: assistantContent.slice(0, 120),
+                    mode,
+                    updated_at: new Date().toISOString(),
+                  });
+                  chatSessions.fetchSessions();
+                }
                 break;
               }
               if (data.type === "tool_start") {
                 setActiveTool(data.tool);
               }
               if (data.type === "text" && data.content) {
+                assistantContent += data.content;
                 setActiveTool(null);
                 setMessages((prev) =>
                   prev.map((msg) =>
@@ -233,7 +309,6 @@ export default function Chat() {
     <div className="relative min-h-[100dvh] w-full text-foreground overflow-hidden font-sans selection:bg-purple-900/50">
       <Starfield mode={mode} />
 
-      {/* Mode-aware top glow — two layers cross-fading */}
       <div
         className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_rgb(88_28_135_/_0.22),_transparent_55%)] transition-opacity duration-[1500ms]"
         style={{ opacity: isScience ? 1 : 0 }}
@@ -242,16 +317,21 @@ export default function Chat() {
         className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_rgb(120_53_15_/_0.18),_transparent_55%)] transition-opacity duration-[1500ms]"
         style={{ opacity: isScience ? 0 : 1 }}
       />
-      {/* Dark vignette base */}
       <div className="absolute inset-0 z-0 pointer-events-none bg-gradient-to-b from-transparent via-background/60 to-background" />
 
-      {/* HistoryPanel rendered at this level so it overlays the chat */}
-      <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} />
+      <HistoryPanel
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        sessions={chatSessions.sessions}
+        loading={chatSessions.loading}
+        activeSessionId={activeSessionId}
+        onSelectSession={handleSelectSession}
+        onRenameSession={chatSessions.renameSession}
+        onDeleteSession={handleDeleteSession}
+      />
 
       <main className="relative z-10 flex flex-col h-[100dvh] max-w-4xl mx-auto px-4 pb-6 md:pb-8" style={{ paddingTop: 'max(56px, calc(env(safe-area-inset-top) + 44px))' }}>
-        {/* Header — title + secondary controls only; mode toggle lives in MinimalTopBar */}
         <header className="flex flex-col items-center mb-4 md:mb-6 shrink-0 relative">
-          {/* Secondary controls */}
           <div className="w-full flex items-center justify-between mb-2 md:mb-0 md:absolute md:inset-x-0 md:top-0">
             <div className="flex items-center gap-2">
               <SkyTonight />
@@ -281,7 +361,6 @@ export default function Chat() {
         <div className="flex-1 overflow-y-auto min-h-0 rounded-2xl bg-card/30 backdrop-blur-xl border border-white/10 shadow-[0_0_40px_rgba(107,33,168,0.1)] p-4 md:p-6 mb-4 scroll-smooth">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-between py-2">
-              {/* Quote */}
               <div className="flex flex-col items-center text-center flex-1 justify-center px-4 opacity-80">
                 <div className={cn("w-14 h-14 rounded-full flex items-center justify-center mb-3 bg-card border border-white/10 shadow-lg", accentColorClass)}>
                   {isScience ? <Telescope size={28} /> : <Star size={28} />}
@@ -293,7 +372,6 @@ export default function Chat() {
                 </p>
               </div>
 
-              {/* Zodiac constellation cards */}
               <div className="w-full shrink-0">
                 <p className="text-[10px] text-white/25 uppercase tracking-widest mb-2 text-center">
                   {isScience ? "Explore the Zodiac Constellations" : "Discover Your Sign"}

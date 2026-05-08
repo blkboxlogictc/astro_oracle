@@ -3,17 +3,17 @@ import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { Sparkles, Camera, Telescope, Compass, History, X } from 'lucide-react';
 
+// All angles are in the upper-left quadrant so satellites never go off
+// the right edge — the FAB is anchored at bottom-right of the screen.
 const ITEMS = [
-  { id: '/',         icon: Sparkles,  label: 'Chat',     angle: -90  },
-  { id: '/sky',      icon: Camera,    label: 'Sky',      angle: -135 },
-  { id: '/explore',  icon: Telescope, label: 'Explore',  angle: -45  },
-  { id: '/discover', icon: Compass,   label: 'Discover', angle: -180 },
-  { id: 'history',   icon: History,   label: 'History',  angle: 0,   isAction: true },
+  { id: '/',         icon: Sparkles,  label: 'Chat',     angle: -90   },
+  { id: '/discover', icon: Compass,   label: 'Discover', angle: -112.5 },
+  { id: '/sky',      icon: Camera,    label: 'Sky',      angle: -135  },
+  { id: '/explore',  icon: Telescope, label: 'Explore',  angle: -157.5 },
+  { id: 'history',   icon: History,   label: 'History',  angle: -180  },
 ];
 
-const ORBITAL_RADIUS = 86;
-
-// Routes where the orbital dock is hidden (full-immersion screens)
+const ORBITAL_RADIUS = 88;
 const HIDDEN_ON = ['/sky'];
 
 export function OrbitalDock() {
@@ -23,7 +23,7 @@ export function OrbitalDock() {
   if (HIDDEN_ON.includes(location)) return null;
 
   const handleItem = (item: typeof ITEMS[0]) => {
-    if (item.isAction) {
+    if (item.id === 'history') {
       if (location !== '/') navigate('/');
       setTimeout(() => window.dispatchEvent(new CustomEvent('open-history')), 150);
     } else {
@@ -33,14 +33,21 @@ export function OrbitalDock() {
   };
 
   return (
-    // Anchor div for absolute satellite positioning
-    <div className="fixed bottom-5 right-4 z-50" style={{ width: 56, height: 56 }}>
+    <div
+      className="fixed z-50"
+      style={{
+        bottom: 'max(20px, calc(env(safe-area-inset-bottom) + 12px))',
+        right: 16,
+        width: 56,
+        height: 56,
+      }}
+    >
       {/* Satellites */}
       {ITEMS.map((item, i) => {
         const rad = (item.angle * Math.PI) / 180;
         const x = Math.cos(rad) * ORBITAL_RADIUS;
         const y = Math.sin(rad) * ORBITAL_RADIUS;
-        const isActive = !item.isAction && location === item.id;
+        const isActive = item.id !== 'history' && item.id !== '' && location === item.id;
 
         return (
           <motion.button
@@ -58,7 +65,7 @@ export function OrbitalDock() {
               type: 'spring',
               stiffness: 280,
               damping: 22,
-              delay: open ? i * 0.03 : 0,
+              delay: open ? i * 0.04 : 0,
             }}
             style={{
               position: 'absolute',
@@ -76,18 +83,38 @@ export function OrbitalDock() {
                 ? '0 0 20px rgba(168,85,247,0.5)'
                 : '0 0 16px rgba(107,33,168,0.35)',
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               pointerEvents: open ? 'auto' : 'none',
+              overflow: 'visible',
             }}
           >
-            <item.icon size={18} />
+            <item.icon size={17} />
+            {open && (
+              <span
+                style={{
+                  position: 'absolute',
+                  bottom: -16,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: 'rgba(255,255,255,0.7)',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {item.label}
+              </span>
+            )}
           </motion.button>
         );
       })}
 
-      {/* Backdrop scrim — closes dock when clicking outside */}
+      {/* Backdrop scrim */}
       {open && (
         <div
           className="fixed inset-0 z-[-1]"

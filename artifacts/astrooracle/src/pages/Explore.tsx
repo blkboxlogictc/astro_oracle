@@ -7,7 +7,7 @@ import {
   Compass, Crown, Lock, Check, Sparkles,
 } from 'lucide-react';
 import { useAppMode } from '@/context/AppContext';
-import { useAuth } from '@/hooks/useAuth';
+import { usePremium } from '@/hooks/usePremium';
 
 // ── Explore objects ───────────────────────────────────────────────────────────
 interface ExploreObj {
@@ -449,10 +449,9 @@ function ExploreObject({ obj, onExit }: { obj: ExploreObj; onExit: () => void })
 }
 
 // ── Landing ───────────────────────────────────────────────────────────────────
-function ExploreLanding({ onSelect }: { onSelect: (o: ExploreObj) => void }) {
+function ExploreLanding({ onSelect, isPremium }: { onSelect: (o: ExploreObj) => void; isPremium: boolean }) {
   const [, navigate] = useLocation();
   const { mode } = useAppMode();
-  const isPremium = false;
 
   return (
     <div className="relative h-full overflow-y-auto pb-28" style={{ paddingTop: 52 }}>
@@ -571,8 +570,8 @@ function ExploreLanding({ onSelect }: { onSelect: (o: ExploreObj) => void }) {
 // ── Public screen ─────────────────────────────────────────────────────────────
 export default function Explore() {
   const { mode } = useAppMode();
+  const { isPremium } = usePremium();
   const [selectedObj, setSelectedObj] = useState<ExploreObj | null>(null);
-  const isPremium = false;
 
   const handleSelect = (o: ExploreObj) => setSelectedObj(o);
 
@@ -603,7 +602,7 @@ export default function Explore() {
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-background/60 to-background" />
 
       <div className="relative z-10 h-[100dvh]">
-        <ExploreLanding onSelect={handleSelect} />
+        <ExploreLanding onSelect={handleSelect} isPremium={isPremium} />
       </div>
     </div>
   );
