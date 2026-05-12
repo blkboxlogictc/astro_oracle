@@ -549,8 +549,11 @@ export default function ARSkyGazer() {
         ?? (e.alpha !== null ? e.alpha : null);
       if (az !== null) setCamAz(az);
 
-      // beta=90 → phone upright → horizon (alt=0); beta=0 → flat up → zenith (alt=90)
-      const alt = 90 - e.beta;
+      // Rear-camera sky gazer orientation:
+      // beta=90  → phone upright portrait → camera at horizon (alt=0°)
+      // beta=135 → tilted back 45°        → camera at 45° altitude
+      // beta=180 → screen face-down       → rear camera pointing at zenith (alt=90°)
+      const alt = e.beta - 90;
       setCamAlt(Math.max(-90, Math.min(90, alt)));
     };
 
