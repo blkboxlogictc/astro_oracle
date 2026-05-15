@@ -517,6 +517,7 @@ export default function ARSkyGazer() {
   const smoothedAlt = useRef(42);
   const rafRef      = useRef<number | null>(null);
   const COMP_ALPHA  = 0.85; // 85% old + 15% new per sensor event → smooth with ~1-2 frame lag
+  const sensorInitialized = useRef(false); // snap on first reading instead of filtering from default
 
   const handleAsk = useCallback((q: string) => toChatWith(q, navigate), [navigate]);
 
@@ -526,14 +527,30 @@ export default function ARSkyGazer() {
 
     const onOrientation = (e: DeviceOrientationEvent) => {
       if (e.beta === null) return;
-      liveOrientation.current = true;
 
-      const rawAz = (e as unknown as { webkitCompassHeading?: number }).webkitCompassHeading
-        ?? (e.alpha !== null ? e.alpha : null);
+      // iOS:     webkitCompassHeading is a calibrated magnetic compass bearing (always correct)
+      // Android: alpha is only meaningful when e.absolute === true (deviceorientationabsolute event)
+      //          Non-absolute alpha resets to 0° on each page load — useless for compass direction
+      const wkh = (e as unknown as { webkitCompassHeading?: number }).webkitCompassHeading;
+      const rawAz: number | null =
+        typeof wkh === 'number' ? wkh :
+        (e.absolute === true && e.alpha !== null) ? e.alpha :
+        null;
+
       const rawAlt = Math.max(-90, Math.min(90, e.beta - 90));
 
+      if (!sensorInitialized.current) {
+        // Cold start: snap directly to first real reading so there's no filter lag on mount/remount
+        if (rawAz !== null) smoothedAz.current = rawAz;
+        smoothedAlt.current = rawAlt;
+        sensorInitialized.current = true;
+        liveOrientation.current = true;
+        return;
+      }
+
+      liveOrientation.current = true;
+
       if (rawAz !== null) {
-        // Complementary filter with 0/360 wrap-around handling
         let azDiff = rawAz - smoothedAz.current;
         if (azDiff >  180) azDiff -= 360;
         if (azDiff < -180) azDiff += 360;
