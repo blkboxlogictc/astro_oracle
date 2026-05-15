@@ -12,6 +12,7 @@ import Chat from "@/pages/Chat";
 import Discover from "@/pages/Discover";
 import ARSkyGazer from "@/pages/ARSkyGazer";
 import Explore from "@/pages/Explore";
+import SkyTonightPage from "@/pages/SkyTonightPage";
 import DailyHoroscope from "@/components/DailyHoroscope";
 import WeeklyWeather from "@/components/WeeklyWeather";
 import CompatibilityAnalyzer from "@/components/CompatibilityAnalyzer";
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/" component={Chat} />
       <Route path="/discover" component={Discover} />
       <Route path="/sky" component={ARSkyGazer} />
+      <Route path="/sky-tonight" component={SkyTonightPage} />
       <Route path="/explore" component={Explore} />
       <Route path="/horoscope" component={DailyHoroscope} />
       <Route path="/weekly" component={WeeklyWeather} />

@@ -93,20 +93,20 @@ export default function Discover() {
         {/* 2-column card grid */}
         <div className="grid grid-cols-2 gap-2 px-3 pb-3">
           <Card
-            title="Sky tonight"
-            caption="Tap to explore"
+            title="Sky Tonight"
+            caption="Moon, stars & season"
             tint="rgba(30,64,175,0.40)"
             icon={<Moon size={18} className="text-blue-200" />}
             tall
-            onClick={() => navigate('/sky')}
+            onClick={() => navigate('/sky-tonight')}
           />
           <Card
-            title={mode === 'mystic' ? 'Daily Horoscope' : 'Cosmic Weather'}
-            caption="Mercury squares Mars"
+            title="Cosmic Events"
+            caption="Moons, retrogrades & more"
             tint="rgba(120,53,15,0.40)"
             icon={<Star size={18} className="text-amber-200" />}
             tall
-            onClick={() => navigate('/horoscope')}
+            onClick={() => navigate('/events')}
           />
           <Card
             title="Weekly Forecast"

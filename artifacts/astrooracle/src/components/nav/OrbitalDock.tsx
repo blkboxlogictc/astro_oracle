@@ -12,7 +12,7 @@ const ITEMS = [
 ];
 
 const ORBITAL_RADIUS = 88;
-const HIDDEN_ON = ['/sky'];
+const HIDDEN_ON = ['/sky', '/sky-tonight'];
 
 export function OrbitalDock() {
   const [open, setOpen] = useState(false);
