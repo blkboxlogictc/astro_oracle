@@ -23,7 +23,7 @@ const MOON_MYSTIC: Record<string, string> = {
   'Waxing Crescent': 'The first exhale of new energy. Take one concrete step toward what you set at the New Moon. Momentum gathers slowly — trust the process.',
   'First Quarter':   'A decision point. The Moon squares the Sun and tension is productive. Act on what you know. Doubt is just the shadow before the light commits.',
   'Waxing Gibbous':  'Refinement time. You can see where you are headed — adjust, polish, prepare. The fullness is coming. Hold your vision steady.',
-  'Full Moon':       'Culmination. The Moon pours its full light onto what you have been building. Celebrate, release what no longer serves, and let the cycle's harvest show itself.',
+  'Full Moon':       "Culmination. The Moon pours its full light onto what you have been building. Celebrate, release what no longer serves, and let the cycle's harvest show itself.",
   'Waning Gibbous':  'Gratitude and sharing. You have received — now give some of that wisdom back. Teach, express, distribute. The energy is generous.',
   'Last Quarter':    'Release and forgiveness. The Moon calls you to let go of what the cycle brought up but did not resolve. Space made now is space filled at the next New Moon.',
   'Waning Crescent': 'Rest and surrender. The dream state between cycles. Restore yourself. The cosmos is preparing a new beginning — you need only be empty enough to receive it.',
