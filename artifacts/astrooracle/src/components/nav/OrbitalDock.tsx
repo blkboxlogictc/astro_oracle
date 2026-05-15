@@ -1,16 +1,14 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
-import { Sparkles, Camera, Telescope, Compass, History, X } from 'lucide-react';
+import { Sparkles, Compass, History, X } from 'lucide-react';
 
 // All angles are in the upper-left quadrant so satellites never go off
 // the right edge — the FAB is anchored at bottom-right of the screen.
 const ITEMS = [
-  { id: '/',         icon: Sparkles,  label: 'Chat',     angle: -90   },
-  { id: '/discover', icon: Compass,   label: 'Discover', angle: -112.5 },
-  { id: '/sky',      icon: Camera,    label: 'Sky',      angle: -135  },
-  { id: '/explore',  icon: Telescope, label: 'Explore',  angle: -157.5 },
-  { id: 'history',   icon: History,   label: 'History',  angle: -180  },
+  { id: '/',         icon: Sparkles, label: 'Chat',     angle: -90  },
+  { id: '/discover', icon: Compass,  label: 'Discover', angle: -135 },
+  { id: 'history',   icon: History,  label: 'History',  angle: -180 },
 ];
 
 const ORBITAL_RADIUS = 88;

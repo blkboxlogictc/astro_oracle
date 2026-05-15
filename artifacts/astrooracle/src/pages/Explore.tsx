@@ -3,11 +3,12 @@ import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 import {
-  X, Telescope, Play, Pause, Volume2, VolumeX,
+  X, Telescope, Play, Pause,
   Compass, Crown, Lock, Check, Sparkles,
 } from 'lucide-react';
 import { useAppMode } from '@/context/AppContext';
 import { usePremium } from '@/hooks/usePremium';
+import { NarrationControls } from '@/components/explore/NarrationControls';
 
 // ── Explore objects ───────────────────────────────────────────────────────────
 interface ExploreObj {
@@ -305,10 +306,9 @@ function PremiumGate({ obj, onBack }: { obj: ExploreObj; onBack: () => void }) {
 }
 
 // ── Object view ───────────────────────────────────────────────────────────────
-function ExploreObject({ obj, onExit }: { obj: ExploreObj; onExit: () => void }) {
+function ExploreObject({ obj, onExit, isPremium }: { obj: ExploreObj; onExit: () => void; isPremium: boolean }) {
   const { mode } = useAppMode();
   const [paused, setPaused] = useState(false);
-  const [muted, setMuted] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [lineIdx, setLineIdx] = useState(0);
 
@@ -363,20 +363,25 @@ function ExploreObject({ obj, onExit }: { obj: ExploreObj; onExit: () => void })
 
       {/* Right-side controls */}
       <div className="absolute right-3 top-1/3 z-10 flex flex-col gap-2">
-        {[
-          { icon: muted ? <VolumeX size={13} /> : <Volume2 size={13} />, onClick: () => setMuted(!muted) },
-          { icon: paused ? <Play size={13} /> : <Pause size={13} />, onClick: () => setPaused(!paused) },
-          { icon: <Compass size={13} />, onClick: () => {} },
-        ].map((btn, i) => (
-          <button
-            key={i}
-            onClick={btn.onClick}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white"
-            style={{ background: 'rgba(18,18,28,0.45)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.10)' }}
-          >
-            {btn.icon}
-          </button>
-        ))}
+        <NarrationControls
+          text={lines[lineIdx]}
+          mode={mode}
+          isPremium={isPremium}
+          paused={paused}
+        />
+        <button
+          onClick={() => setPaused(!paused)}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-white"
+          style={{ background: 'rgba(18,18,28,0.45)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.10)' }}
+        >
+          {paused ? <Play size={13} /> : <Pause size={13} />}
+        </button>
+        <button
+          className="w-8 h-8 rounded-full flex items-center justify-center text-white"
+          style={{ background: 'rgba(18,18,28,0.45)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.10)' }}
+        >
+          <Compass size={13} />
+        </button>
       </div>
 
       {/* Subtitle narration */}
@@ -581,7 +586,7 @@ export default function Explore() {
       <div className="fixed inset-0">
         {needsGate
           ? <PremiumGate obj={selectedObj} onBack={() => setSelectedObj(null)} />
-          : <ExploreObject obj={selectedObj} onExit={() => setSelectedObj(null)} />
+          : <ExploreObject obj={selectedObj} onExit={() => setSelectedObj(null)} isPremium={isPremium} />
         }
       </div>
     );
