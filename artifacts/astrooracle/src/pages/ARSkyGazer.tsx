@@ -7,18 +7,17 @@ import {
 } from 'lucide-react';
 import { useAppMode } from '@/context/AppContext';
 
-// ── Sky projection ────────────────────────────────────────────────────────────
+// ── Sky projection ─────────────────────────────────────────────────────────────
 // Full-sphere 2D projection. camAz = compass heading (0–360, N=0 clockwise).
 // camAlt = altitude camera is pointing at (-90 nadir … 0 horizon … 90 zenith).
-// Objects anywhere on the sphere project to screen coords 0–100.
 
-const FOV_AZ  = 75; // horizontal field of view in degrees
-const FOV_ALT = 55; // vertical field of view in degrees
+const FOV_AZ  = 75;
+const FOV_ALT = 55;
 
 interface Projected {
-  x: number;       // 0–100 screen %
-  y: number;       // 0–100 screen %
-  opacity: number; // 0–1 edge fade
+  x: number;
+  y: number;
+  opacity: number;
   visible: boolean;
 }
 
@@ -35,7 +34,9 @@ function project(
     return { x: 0, y: 0, opacity: 0, visible: false };
   }
 
-  const x = 50 + (dAz  / hHalf) * 50;
+  // Negate dAz so sky behaves like the inside of a sphere.
+  // When heading increases (rotating right), objects move left on screen.
+  const x = 50 - (dAz  / hHalf) * 50;
   const y = 50 - (dAlt / vHalf) * 50;
   const fadeAz  = Math.max(0, 1 - Math.abs(dAz)  / hHalf);
   const fadeAlt = Math.max(0, 1 - Math.abs(dAlt) / vHalf);
@@ -49,17 +50,15 @@ interface Constellation {
   id: string;
   name: string;
   myth: string;
-  az: number;     // center azimuth
-  alt: number;    // center altitude
-  mag: number;    // brightest star magnitude
-  spanAz: number; // angular width in degrees
-  spanAlt: number;// angular height in degrees
-  stars: [number, number][]; // normalized [0–1, 0–1] relative to center
+  az: number;
+  alt: number;
+  mag: number;
+  spanAz: number;
+  spanAlt: number;
+  stars: [number, number][];
   lines: [number, number][];
 }
 
-// Stars are normalized: [0,0]=top-left, [1,1]=bottom-right of the constellation's bbox.
-// spanAz/spanAlt convert them to real degrees offset from (az, alt) center.
 const CONSTELLATIONS: Constellation[] = [
   {
     id: 'orion', name: 'Orion', myth: 'The Hunter',
@@ -105,7 +104,6 @@ const CONSTELLATIONS: Constellation[] = [
   },
 ];
 
-// Fixed sky coordinates for planets — NO random values to avoid re-render glitch
 interface Planet { name: string; az: number; alt: number; color: string; size: number }
 
 const PLANETS: Planet[] = [
@@ -117,17 +115,15 @@ const PLANETS: Planet[] = [
 
 type Layer = 'lines' | 'names' | 'planets';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function toChatWith(question: string, navigate: (p: string) => void) {
   sessionStorage.setItem('chatPrefill', question);
   navigate('/');
 }
 
-// Convert constellation's relative star positions to absolute (az, alt)
 function starCoords(c: Constellation): { az: number; alt: number }[] {
   return c.stars.map(([rx, ry]) => ({
     az:  c.az  + (rx - 0.5) * c.spanAz,
-    alt: c.alt + (0.5 - ry) * c.spanAlt, // ry=0 is top → higher altitude
+    alt: c.alt + (0.5 - ry) * c.spanAlt,
   }));
 }
 
@@ -146,13 +142,12 @@ function PermissionFlow({ onDone, onCancel }: { onDone: () => void; onCancel: ()
 
   const handleNext = async () => {
     if (step === 2) {
-      // iOS 13+ requires a user-gesture to request orientation permission
       try {
         const doe = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
         if (typeof doe.requestPermission === 'function') {
           await doe.requestPermission();
         }
-      } catch { /* denied or unsupported — fall back to simulation */ }
+      } catch { /* denied or unsupported */ }
     }
     if (step === 3 && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(() => {}, () => {}, { timeout: 6000 });
@@ -202,19 +197,17 @@ function PermissionFlow({ onDone, onCancel }: { onDone: () => void; onCancel: ()
   );
 }
 
-// ── Background star field (stable refs — never re-randomises) ─────────────────
+// ── Background star field ─────────────────────────────────────────────────────
 function SimStars({ camAlt }: { camAlt: number }) {
-  // Fixed star positions seeded once
   const stars = useRef(
     Array.from({ length: 120 }, (_, i) => ({
-      x: ((i * 137.508) % 100),                    // golden-angle pseudo-random
+      x: ((i * 137.508) % 100),
       y: ((i * 97.32)  % 80),
       r: 0.08 + ((i * 31) % 10) * 0.032,
       dur: 2 + ((i * 7) % 50) / 10,
     }))
   ).current;
 
-  // Shift star field vertically as the user tilts (parallax feel)
   const shiftY = (camAlt / 90) * 15;
 
   return (
@@ -242,7 +235,6 @@ function CameraSky({
   const colorMain = mode === 'mystic' ? '#fde68a' : '#bfdbfe';
   const colorLine = mode === 'mystic' ? 'rgba(251,191,36,0.6)' : 'rgba(96,165,250,0.6)';
 
-  // Precompute projected stars per constellation (memoised on camAz/camAlt)
   const projectedConstellations = useMemo(() => {
     return CONSTELLATIONS.map(c => {
       const coords = starCoords(c);
@@ -257,7 +249,6 @@ function CameraSky({
     return PLANETS.map(p => ({ p, pos: project(p.az, p.alt, camAz, camAlt) }));
   }, [camAz, camAlt]);
 
-  // Where does the horizon (alt=0) appear on screen?
   const horizonY = 50 + (camAlt / (FOV_ALT / 2)) * 50;
   const showHorizon = horizonY > 2 && horizonY < 98;
   const lookingUnderground = camAlt < -15;
@@ -272,13 +263,11 @@ function CameraSky({
              linear-gradient(180deg, #0c0a25 0%, #0a0a18 50%, #050507 100%)`,
       }}
     >
-      {/* City glow horizon (fades when looking away) */}
       {!lookingUnderground && (
         <div className="absolute left-0 right-0 bottom-0"
           style={{ height: '32%', background: 'linear-gradient(0deg, rgba(245,158,11,0.14), transparent)' }} />
       )}
 
-      {/* Underground tint when pointing below horizon */}
       {lookingUnderground && (
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse at 50% 60%, rgba(120,60,10,0.12), transparent 70%)' }} />
@@ -286,7 +275,6 @@ function CameraSky({
 
       <SimStars camAlt={camAlt} />
 
-      {/* Horizon line */}
       {showHorizon && (
         <div className="absolute left-0 right-0 pointer-events-none"
           style={{
@@ -296,7 +284,6 @@ function CameraSky({
           }} />
       )}
 
-      {/* Underground label */}
       {lookingUnderground && (
         <div className="absolute left-0 right-0 flex justify-center pointer-events-none" style={{ top: '20%' }}>
           <span className="text-[10px] text-amber-400/60 tracking-widest uppercase font-medium">
@@ -305,17 +292,14 @@ function CameraSky({
         </div>
       )}
 
-      {/* Main sky SVG overlay */}
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
 
-        {/* ── Constellations ── */}
         {layer !== 'planets' && projectedConstellations.map(({ c, pStars, pCenter, anyVisible }) => {
           if (!anyVisible) return null;
           const groupOpacity = Math.max(...pStars.map(p => p.opacity), pCenter.opacity);
 
           return (
             <g key={c.id} style={{ opacity: groupOpacity, cursor: 'pointer' }} onClick={() => onTap(c)}>
-              {/* Constellation lines */}
               {layer === 'lines' && c.lines.map(([a, b], i) => {
                 const pa = pStars[a], pb = pStars[b];
                 if (!pa || !pb || (!pa.visible && !pb.visible)) return null;
@@ -328,7 +312,6 @@ function CameraSky({
                 );
               })}
 
-              {/* Stars */}
               {pStars.map((p, i) => !p.visible ? null : (
                 <circle key={i} cx={p.x} cy={p.y}
                   r={i === 0 ? 0.72 : 0.42}
@@ -340,7 +323,6 @@ function CameraSky({
                 </circle>
               ))}
 
-              {/* Name label — shown in both lines and names layers */}
               {pCenter.visible && (
                 <text
                   x={pCenter.x + 1.2} y={pCenter.y - 1.2}
@@ -355,15 +337,12 @@ function CameraSky({
           );
         })}
 
-        {/* ── Planets ── */}
         {layer === 'planets' && projectedPlanets.map(({ p, pos }) => {
           if (!pos.visible) return null;
           return (
             <g key={p.name} style={{ opacity: pos.opacity }}>
-              {/* Outer glow */}
               <circle cx={pos.x} cy={pos.y} r={p.size * 3.5} fill={p.color} opacity="0.08" />
               <circle cx={pos.x} cy={pos.y} r={p.size * 2}   fill={p.color} opacity="0.15" />
-              {/* Planet dot */}
               <circle cx={pos.x} cy={pos.y} r={p.size} fill={p.color}>
                 <animate attributeName="opacity"
                   values={`${pos.opacity * 0.7};${pos.opacity};${pos.opacity * 0.7}`}
@@ -378,11 +357,9 @@ function CameraSky({
         })}
       </svg>
 
-      {/* Scanlines */}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: 'repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,0.008) 3px 4px)' }} />
 
-      {/* Reticle */}
       <div className="absolute left-1/2 top-[45%] -translate-x-1/2 -translate-y-1/2 w-16 h-16 pointer-events-none">
         <svg viewBox="0 0 64 64">
           <circle cx="32" cy="32" r="22" stroke="rgba(255,255,255,0.15)" strokeWidth="0.5" fill="none" />
@@ -525,17 +502,25 @@ function ConstellationSheet({
 export default function ARSkyGazer() {
   const [, navigate] = useLocation();
   const { mode } = useAppMode();
-  const [granted, setGranted]         = useState(false);
-  const [camAz,   setCamAz]           = useState(140);   // compass azimuth 0–360
-  const [camAlt,  setCamAlt]          = useState(42);    // altitude –90…90
-  const [selected, setSelected]       = useState<Constellation | null>(null);
-  const [layer,    setLayer]          = useState<Layer>('lines');
+  const [granted, setGranted]             = useState(false);
+  const [camAz,   setCamAz]               = useState(140);
+  const [camAlt,  setCamAlt]              = useState(42);
+  const [selected, setSelected]           = useState<Constellation | null>(null);
+  const [layer,    setLayer]              = useState<Layer>('lines');
   const [locationLabel, setLocationLabel] = useState('Your location');
+
   const liveOrientation = useRef(false);
+
+  // Smoothed orientation stored in refs — never triggers re-renders directly.
+  // The RAF loop below reads these and pushes to state at ≤60fps.
+  const smoothedAz  = useRef(140);
+  const smoothedAlt = useRef(42);
+  const rafRef      = useRef<number | null>(null);
+  const COMP_ALPHA  = 0.85; // 85% old + 15% new per sensor event → smooth with ~1-2 frame lag
 
   const handleAsk = useCallback((q: string) => toChatWith(q, navigate), [navigate]);
 
-  // ── Device orientation ───────────────────────────────────────────────────────
+  // ── Device orientation — writes to refs only, never calls setState ───────────
   useEffect(() => {
     if (!granted) return;
 
@@ -543,18 +528,18 @@ export default function ARSkyGazer() {
       if (e.beta === null) return;
       liveOrientation.current = true;
 
-      // iOS provides webkitCompassHeading (0=N, clockwise) — prefer it.
-      // Android absolute fires on 'deviceorientationabsolute'; alpha=0 is North.
-      const az = (e as unknown as { webkitCompassHeading?: number }).webkitCompassHeading
+      const rawAz = (e as unknown as { webkitCompassHeading?: number }).webkitCompassHeading
         ?? (e.alpha !== null ? e.alpha : null);
-      if (az !== null) setCamAz(az);
+      const rawAlt = Math.max(-90, Math.min(90, e.beta - 90));
 
-      // Rear-camera sky gazer orientation:
-      // beta=90  → phone upright portrait → camera at horizon (alt=0°)
-      // beta=135 → tilted back 45°        → camera at 45° altitude
-      // beta=180 → screen face-down       → rear camera pointing at zenith (alt=90°)
-      const alt = e.beta - 90;
-      setCamAlt(Math.max(-90, Math.min(90, alt)));
+      if (rawAz !== null) {
+        // Complementary filter with 0/360 wrap-around handling
+        let azDiff = rawAz - smoothedAz.current;
+        if (azDiff >  180) azDiff -= 360;
+        if (azDiff < -180) azDiff += 360;
+        smoothedAz.current = ((smoothedAz.current + azDiff * (1 - COMP_ALPHA)) + 360) % 360;
+      }
+      smoothedAlt.current = smoothedAlt.current * COMP_ALPHA + rawAlt * (1 - COMP_ALPHA);
     };
 
     const setup = () => {
@@ -576,19 +561,33 @@ export default function ARSkyGazer() {
 
     setup();
 
-    // Fallback: smoothly animate both axes until real sensor data arrives
+    // Fallback: animate refs (not state) until real sensor data arrives
     let t = 0;
     const fallback = setInterval(() => {
       if (liveOrientation.current) return;
       t += 0.012;
-      setCamAz(az => (az + 0.35) % 360);
-      setCamAlt(30 + Math.sin(t) * 22); // bobs between ~8° and ~52°
+      smoothedAz.current  = (smoothedAz.current + 0.35) % 360;
+      smoothedAlt.current = 30 + Math.sin(t) * 22;
     }, 60);
 
     return () => {
       clearInterval(fallback);
       window.removeEventListener('deviceorientation',         onOrientation, true);
       window.removeEventListener('deviceorientationabsolute', onOrientation as EventListener, true);
+    };
+  }, [granted]);
+
+  // ── RAF render loop — reads smoothed refs, updates React state at ≤60fps ─────
+  useEffect(() => {
+    if (!granted) return;
+    const tick = () => {
+      setCamAz(smoothedAz.current);
+      setCamAlt(smoothedAlt.current);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
   }, [granted]);
 
@@ -622,7 +621,6 @@ export default function ARSkyGazer() {
     <div className="fixed inset-0 overflow-hidden">
       <CameraSky camAz={camAz} camAlt={camAlt} mode={mode} layer={layer} onTap={setSelected} />
 
-      {/* Top bar */}
       <div className="absolute left-3 right-3 flex justify-between items-center z-10"
         style={{ top: 'max(12px, env(safe-area-inset-top))' }}>
         <button onClick={() => navigate('/')}
@@ -650,7 +648,6 @@ export default function ARSkyGazer() {
         </div>
       </div>
 
-      {/* HUD */}
       <div className="absolute left-3 right-3 z-5 flex justify-between gap-2" style={{ top: 70 }}>
         <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full"
           style={{ background: 'rgba(18,18,28,0.5)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.10)' }}>
@@ -669,7 +666,6 @@ export default function ARSkyGazer() {
         </div>
       </div>
 
-      {/* Tap hint */}
       {!selected && (
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0.7] }}
@@ -685,7 +681,6 @@ export default function ARSkyGazer() {
         </motion.div>
       )}
 
-      {/* Bottom controls */}
       <div className="absolute left-3 right-3 flex items-center justify-between z-10"
         style={{ bottom: 'max(24px, calc(env(safe-area-inset-bottom) + 16px))' }}>
         <div className="flex rounded-full p-1 gap-0.5"
@@ -707,7 +702,6 @@ export default function ARSkyGazer() {
         </button>
       </div>
 
-      {/* Constellation sheet */}
       <AnimatePresence>
         {selected && (
           <ConstellationSheet key={selected.id} c={selected} mode={mode}
