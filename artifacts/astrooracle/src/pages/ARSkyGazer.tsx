@@ -34,9 +34,7 @@ function project(
     return { x: 0, y: 0, opacity: 0, visible: false };
   }
 
-  // Negate dAz so sky behaves like the inside of a sphere.
-  // When heading increases (rotating right), objects move left on screen.
-  const x = 50 - (dAz  / hHalf) * 50;
+  const x = 50 + (dAz  / hHalf) * 50;
   const y = 50 - (dAlt / vHalf) * 50;
   const fadeAz  = Math.max(0, 1 - Math.abs(dAz)  / hHalf);
   const fadeAlt = Math.max(0, 1 - Math.abs(dAlt) / vHalf);
@@ -534,7 +532,7 @@ export default function ARSkyGazer() {
       const wkh = (e as unknown as { webkitCompassHeading?: number }).webkitCompassHeading;
       const rawAz: number | null =
         typeof wkh === 'number' ? wkh :
-        (e.absolute === true && e.alpha !== null) ? e.alpha :
+        (e.absolute === true && e.alpha !== null) ? (360 - e.alpha) % 360 :
         null;
 
       const rawAlt = Math.max(-90, Math.min(90, e.beta - 90));
