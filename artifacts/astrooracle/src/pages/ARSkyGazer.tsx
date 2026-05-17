@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { BRIGHT_STARS } from '@/data/brightStars';
 import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -41,6 +42,45 @@ function project(
   const opacity = fadeAz * fadeAlt;
 
   return { x, y, opacity, visible: opacity > 0.05 };
+}
+
+// ── Astronomical math ─────────────────────────────────────────────────────────
+
+function getGMST(date: Date): number {
+  const jd  = date.getTime() / 86400000 + 2440587.5;
+  const T   = (jd - 2451545.0) / 36525;
+  let gmst  = 6.697374558 + 2400.0513369 * T + 0.0000258622 * T * T;
+  gmst     += (date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600) * 1.00273790935;
+  return ((gmst % 24) + 24) % 24;
+}
+
+function raDecToAltAz(
+  ra: number, dec: number,
+  lat: number, lng: number,
+  date: Date,
+): { alt: number; az: number } {
+  const lst    = ((getGMST(date) + lng / 15) % 24 + 24) % 24;
+  const ha     = ((lst - ra) * 15 + 360) % 360;
+  const haR    = ha  * (Math.PI / 180);
+  const dR     = dec * (Math.PI / 180);
+  const lR     = lat * (Math.PI / 180);
+  const sinAlt = Math.sin(dR) * Math.sin(lR) + Math.cos(dR) * Math.cos(lR) * Math.cos(haR);
+  const altR   = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+  const alt    = altR * (180 / Math.PI);
+  const cosAlt = Math.cos(altR);
+  if (cosAlt < 1e-9) return { alt, az: 0 };
+  const cosAz  = (Math.sin(dR) - Math.sin(lR) * sinAlt) / (Math.cos(lR) * cosAlt);
+  let az       = Math.acos(Math.max(-1, Math.min(1, cosAz))) * (180 / Math.PI);
+  if (Math.sin(haR) > 0) az = 360 - az;
+  return { alt, az };
+}
+
+const SPECT_COLOR: Record<string, string> = {
+  O: '#9bb0ff', B: '#aabfff', A: '#cad7ff',
+  F: '#f8f7ff', G: '#fff4ea', K: '#ffd2a1', M: '#ffad51',
+};
+function spectralColor(spect: string): string {
+  return SPECT_COLOR[spect[0]?.toUpperCase() ?? 'A'] ?? '#ffffff';
 }
 
 // ── Constellation data ────────────────────────────────────────────────────────
@@ -195,7 +235,78 @@ function PermissionFlow({ onDone, onCancel }: { onDone: () => void; onCancel: ()
   );
 }
 
-// ── Background star field ─────────────────────────────────────────────────────
+// ── Real star canvas ──────────────────────────────────────────────────────────
+function StarCanvas({
+  camAz, camAlt, observerLat, observerLng,
+}: {
+  camAz: number; camAlt: number; observerLat: number; observerLng: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const nowRef    = useRef(new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => { nowRef.current = new Date(); }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const w   = canvas.clientWidth;
+    const h   = canvas.clientHeight;
+    canvas.width  = w * dpr;
+    canvas.height = h * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    const now = nowRef.current;
+
+    for (const [ra, dec, mag, spect] of BRIGHT_STARS) {
+      const { alt, az } = raDecToAltAz(ra, dec, observerLat, observerLng, now);
+      if (alt < -8) continue;
+
+      const proj = project(az, alt, camAz, camAlt);
+      if (!proj.visible) continue;
+
+      const px  = (proj.x / 100) * w;
+      const py  = (proj.y / 100) * h;
+      const r   = Math.max(0.7, (3.6 - mag) * 0.95);
+      const col = spectralColor(spect);
+      const alpha = proj.opacity * Math.max(0.3, Math.min(1, (alt + 8) / 15));
+
+      if (mag < 1.5) {
+        const grad = ctx.createRadialGradient(px, py, r * 0.5, px, py, r * 4);
+        grad.addColorStop(0, col + '55');
+        grad.addColorStop(1, col + '00');
+        ctx.beginPath();
+        ctx.arc(px, py, r * 4, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.globalAlpha = alpha * 0.6;
+        ctx.fill();
+      }
+
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fillStyle = col;
+      ctx.globalAlpha = alpha;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }, [camAz, camAlt, observerLat, observerLng]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full pointer-events-none"
+    />
+  );
+}
+
+// ── Background star field (faint fill) ───────────────────────────────────────
 function SimStars({ camAlt }: { camAlt: number }) {
   const stars = useRef(
     Array.from({ length: 120 }, (_, i) => ({
@@ -223,9 +334,10 @@ function SimStars({ camAlt }: { camAlt: number }) {
 
 // ── Sky viewport ──────────────────────────────────────────────────────────────
 function CameraSky({
-  camAz, camAlt, mode, layer, onTap,
+  camAz, camAlt, observerLat, observerLng, mode, layer, onTap,
 }: {
   camAz: number; camAlt: number;
+  observerLat: number; observerLng: number;
   mode: 'science' | 'mystic';
   layer: Layer;
   onTap: (c: Constellation) => void;
@@ -271,6 +383,7 @@ function CameraSky({
           style={{ background: 'radial-gradient(ellipse at 50% 60%, rgba(120,60,10,0.12), transparent 70%)' }} />
       )}
 
+      <StarCanvas camAz={camAz} camAlt={camAlt} observerLat={observerLat} observerLng={observerLng} />
       <SimStars camAlt={camAlt} />
 
       {showHorizon && (
@@ -506,6 +619,8 @@ export default function ARSkyGazer() {
   const [selected, setSelected]           = useState<Constellation | null>(null);
   const [layer,    setLayer]              = useState<Layer>('lines');
   const [locationLabel, setLocationLabel] = useState('Your location');
+  const [observerLat,   setObserverLat]   = useState(40.0);
+  const [observerLng,   setObserverLng]   = useState(-75.0);
 
   const liveOrientation = useRef(false);
 
@@ -611,6 +726,8 @@ export default function ARSkyGazer() {
     if (!granted || !('geolocation' in navigator)) return;
     navigator.geolocation.getCurrentPosition(
       pos => {
+        setObserverLat(pos.coords.latitude);
+        setObserverLng(pos.coords.longitude);
         const lat = Math.abs(pos.coords.latitude).toFixed(1);
         const lng = Math.abs(pos.coords.longitude).toFixed(1);
         setLocationLabel(`${lat}°${pos.coords.latitude >= 0 ? 'N' : 'S'} ${lng}°${pos.coords.longitude >= 0 ? 'E' : 'W'}`);
@@ -634,7 +751,7 @@ export default function ARSkyGazer() {
 
   return (
     <div className="fixed inset-0 overflow-hidden">
-      <CameraSky camAz={camAz} camAlt={camAlt} mode={mode} layer={layer} onTap={setSelected} />
+      <CameraSky camAz={camAz} camAlt={camAlt} observerLat={observerLat} observerLng={observerLng} mode={mode} layer={layer} onTap={setSelected} />
 
       <div className="absolute left-3 right-3 flex justify-between items-center z-10"
         style={{ top: 'max(12px, env(safe-area-inset-top))' }}>
